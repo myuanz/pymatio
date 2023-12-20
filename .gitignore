@@ -3,3 +3,5 @@
 /*.egg-info
 /wheelhouse
 .idea
+.vscode
+.xmake

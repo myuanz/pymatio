@@ -1,8 +1,9 @@
 #ifndef PYMATIO_LIBMATIO_H
 #define PYMATIO_LIBMATIO_H
-#include "matio_private.h"
 #include <pybind11/stl.h>
 #include <pybind11/pybind11.h>
+
+#include "matio_private.h"
 
 namespace matio {
     /** @brief MAT file access types

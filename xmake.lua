@@ -66,6 +66,7 @@ add_requires("libmatio2", {
     external = false 
 })
 add_requires("pybind11")
+add_requireconfs("pybind11", {override = true}) -- 如果系统自带了 pybind11，偶尔会出现一些问题
 
 target("pymatio")
     set_kind("shared")

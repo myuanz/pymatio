@@ -1,6 +1,8 @@
 add_rules("mode.debug", "mode.release")
 set_languages("cxx17")
-package("libmatio2")
+
+-- xrepo 的 matio 不包含私有头，但是要想看到 mat_t 结构体，又必须有似有头
+package("_matio")
     set_homepage("https://matio.sourceforge.io")
     set_description("MATLAB MAT File I/O Library")
     set_license("BSD-2-Clause")
@@ -39,19 +41,18 @@ package("libmatio2")
         table.insert(configs, "-DMATIO_DEFAULT_FILE_VERSION=" .. package:config("default_file_version"))
         io.replace("CMakeLists.txt", "include(cmake/tools.cmake)", "", {plain = true})
         io.replace("CMakeLists.txt", "include(cmake/test.cmake)", "", {plain = true})
-        print(io.replace("cmake/src.cmake", "    ${PROJECT_BINARY_DIR}/src/matio_pubconf.h\n)", 
+        io.replace("cmake/src.cmake", "    ${PROJECT_BINARY_DIR}/src/matio_pubconf.h\n)", 
 [[
     ${PROJECT_BINARY_DIR}/src/matio_pubconf.h
     ${PROJECT_BINARY_DIR}/src/matioConfig.h
     ${PROJECT_SOURCE_DIR}/src/matio_private.h
 )
-]], {plain = true}))
+]], {plain = true})
 
         local packagedeps = {}
         if package:config("hdf5") then
             table.insert(packagedeps, "hdf5")
         end
-        -- add_headerfiles("src/matio.h", {install = false})
 
         import("package.tools.cmake").install(package, configs, {packagedeps = packagedeps})
     end)
@@ -61,36 +62,18 @@ package("libmatio2")
     end)
 package_end()
 
-add_requires("libmatio2", {
+add_requires("_matio", {
     configs = {zlib = true, hdf5 = true, mat73 = true},
     external = false 
 })
 add_requires("pybind11")
-add_requireconfs("pybind11", {override = true}) -- 如果系统自带了 pybind11，偶尔会出现一些问题
+add_requireconfs("pybind11", {override = true}) -- 如果系统自带了 pybind11，偶尔会出现一些问题，所以这里一定要用 xrepo 的
 
 target("pymatio")
     set_kind("shared")
-    add_packages("libmatio2", "pybind11")
+    add_packages("_matio", "pybind11")
     add_cxflags("$(shell python -m pybind11 --includes)")
 
     set_extension("$(shell python -c \"print%(__import__%('sysconfig'%).get_config_var%('EXT_SUFFIX'%), end=''%)\")")
-
-    -- add_files("src/main.cpp")
     add_files("src/*.cpp")
-    -- add_files("src/test_matio.cpp")
-
-    add_includedirs("src")
-
-    -- after_build(
-    --     function(target)
-    --         local targetfile = target:targetfile()
-    --         os.cp(targetfile, path.join("./", path.filename(targetfile):sub(4)))
-    --     end
-    -- )
-
-target("test-matio")
-    set_kind("binary")
-    add_packages("libmatio2", "pybind11")
-
-    add_files("src/test_matio.cpp")
     add_includedirs("src")

@@ -3,7 +3,7 @@ from setuptools.command.build_ext import build_ext
 
 
 ext_modules = [
-    Extension("pymatio",[]),
+    Extension("pymatio.libpymatio", []),
 ]
 class XMakeBuildExt(build_ext):
     def run(self):

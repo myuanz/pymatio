@@ -1,4 +1,5 @@
 /build
+/dist
 /cmake-build-*
 /*.egg-info
 /wheelhouse

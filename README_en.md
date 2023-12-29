@@ -8,12 +8,17 @@ Coincidentally, there's a library in C called [matio](https://github.com/tbeu/ma
 
 # Roadmap
 
-- [x] Complete binding of basic functions
+# Roadmap
+
+- [x] Complete the binding of basic functions
 - [x] Compile successfully on Windows and Linux using xmake
-- [ ] Automatically handle virtual environments during extension compilation
-- [ ] Add more Pythonic interfaces
-- [ ] Package as a whl file
-- [ ] Add benchmarking
+- [x] Package as a whl file
+- [x] Add basic tests for successful build
+- [ ] Add cibuildwheel and Github Action
+- [ ] Learn from the strengths of https://github.com/pybind/scikit_build_example
+- [x] Automatically handle virtual environments when compiling extensions
+- [ ] Add more Pythonic calling interfaces
+- [ ] Add benchmark
 - [ ] Import tests from scio and mat73
 
 # Usage

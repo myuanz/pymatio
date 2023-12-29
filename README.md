@@ -11,9 +11,10 @@ Python 中始终没有一个一站式读取 mat 文件的库，mat5 总是依赖
 - [x] 完成基本函数的绑定
 - [x] 使用 xmake 在 Windows 和 Linux 上编译通过
 - [x] 打包为 whl 文件
-- [ ] 添加测试
+- [x] 添加关于构建成功的基本测试
 - [ ] 添加 cibuildwheel 和 Github Action
-- [ ] 编译扩展时自动处理虚拟环境
+- [ ] 吸取 https://github.com/pybind/scikit_build_example 中的优势
+- [x] 编译扩展时自动处理虚拟环境
 - [ ] 添加更 Pythonic 的调用接口
 - [ ] 添加 benchmark
 - [ ] 导入 scio 的测试和 mat73 的测试

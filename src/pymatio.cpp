@@ -3,7 +3,7 @@
 //
 #include "libmatio.h"
 
-PYBIND11_MODULE(pymatio, m) {
+PYBIND11_MODULE(libpymatio, m) {
 pybind11::enum_<matio::MatAcc>(m, "MatAcc", "MAT file access types.")
     .value("RDONLY", matio::MatAcc::RDONLY, "Read only file access.")
     .value("RDWR", matio::MatAcc::RDWR, "Read/Write file access.")

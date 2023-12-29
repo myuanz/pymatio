@@ -12,3 +12,5 @@
 *.dll
 *.pyd
 *.pyc
+
+/setup.py

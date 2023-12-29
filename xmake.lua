@@ -70,10 +70,9 @@ add_requires("_matio", {
 add_requires("pybind11")
 add_requireconfs("pybind11", {override = true}) -- 如果系统自带了 pybind11，偶尔会出现一些问题，所以这里一定要用 xrepo 的
 
-target("pymatio")
+target("libpymatio")
     set_kind("shared")
     add_packages("_matio", "pybind11")
-    add_cxflags("$(shell python -m pybind11 --includes)")
     set_extension("$(shell python -c \"print%(__import__%('sysconfig'%).get_config_var%('EXT_SUFFIX'%), end=''%)\")")
     add_files("src/*.cpp")
     add_includedirs("src")

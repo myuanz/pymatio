@@ -12,11 +12,11 @@ generate-setup-file = true
 
 [tool.poetry.dependencies]
 python = "^3.11"
-pybind11 = "^2.11.1"
 
 
 [tool.poetry.group.dev.dependencies]
 setuptools = "^69.0.3"
+pybind11 = "^2"
 
 [build-system]
 requires = ["poetry-core", "setuptools"]

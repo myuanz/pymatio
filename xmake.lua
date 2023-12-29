@@ -1,6 +1,7 @@
 add_rules("mode.debug", "mode.release")
 
-package("libmatio2")
+-- xrepo 的 matio 不包含私有头，但是要想看到 mat_t 结构体，又必须有似有头
+package("_matio")
     set_homepage("https://matio.sourceforge.io")
     set_description("MATLAB MAT File I/O Library")
     set_license("BSD-2-Clause")
@@ -60,25 +61,19 @@ package("libmatio2")
     end)
 package_end()
 
-set_languages("cxx17")
 set_runtimes("MD")
+set_languages("cxx17")
 
-add_requires("libmatio2", {
+add_requires("_matio", {
     configs = {zlib = true, hdf5 = true, mat73 = true},
 })
 add_requires("pybind11")
+add_requireconfs("pybind11", {override = true}) -- 如果系统自带了 pybind11，偶尔会出现一些问题，所以这里一定要用 xrepo 的
 
 target("pymatio")
     set_kind("shared")
-    add_packages("libmatio2", "pybind11")
+    add_packages("_matio", "pybind11")
     add_cxflags("$(shell python -m pybind11 --includes)")
     set_extension("$(shell python -c \"print%(__import__%('sysconfig'%).get_config_var%('EXT_SUFFIX'%), end=''%)\")")
-
     add_files("src/*.cpp")
-    add_includedirs("src")
-
-target("test")
-    set_kind("binary")
-    add_packages("libmatio2")
-    add_files("src/test_matio.cpp")
     add_includedirs("src")

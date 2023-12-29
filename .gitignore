@@ -1,7 +1,14 @@
 /build
+/dist
 /cmake-build-*
 /*.egg-info
 /wheelhouse
 .idea
 .vscode
 .xmake
+
+*.mat
+*.so
+*.dll
+*.pyd
+*.pyc

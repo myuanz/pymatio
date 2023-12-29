@@ -78,7 +78,9 @@ pybind11::class_<matio::MatT>(m, "MatT", "Matlab MAT File information.")
     .def_readwrite("bof", &matio::MatT::bof, "Beginning of file not including any header.")
     .def_readwrite("next_index", &matio::MatT::next_index, "Index/File position of next variable to read.")
     .def_readwrite("num_datasets", &matio::MatT::num_datasets, "Number of datasets in the file.")
+#if defined(MAT73) && MAT73
     .def_readwrite("refs_id", &matio::MatT::refs_id, "Id of the /#refs# group in HDF5.")
+#endif
     .def_property_readonly("dir", &matio::MatT::get_dir, pybind11::return_value_policy::move, "Names of the datasets in the file.")
     .def_property("mode", &matio::MatT::get_mode, &matio::MatT::set_mode, "Access mode.");
 pybind11::class_<matio::MatVarT>(m, "MatVarT", "Matlab variable information.")

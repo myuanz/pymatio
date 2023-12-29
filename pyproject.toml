@@ -5,6 +5,7 @@ description = ""
 authors = ["zhengmy <zhengmy@ion.ac.cn>"]
 license = "GPL"
 readme = "README.md"
+packages = [{include = "pymatio"}]
 
 [tool.poetry.build]
 script = "build.py"
@@ -17,9 +18,13 @@ python = "^3.11"
 [tool.poetry.group.dev.dependencies]
 setuptools = "^69.0.3"
 pybind11 = "^2"
+cibuildwheel = "^2.16.2"
+pytest = "^7.4.3"
 
 [build-system]
 requires = ["poetry-core", "setuptools"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.cibuildwheel]
+build = ["cp310-*", "cp311-*"]
 

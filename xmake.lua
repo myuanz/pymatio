@@ -77,3 +77,8 @@ target("pymatio")
     set_extension("$(shell python -c \"print%(__import__%('sysconfig'%).get_config_var%('EXT_SUFFIX'%), end=''%)\")")
     add_files("src/*.cpp")
     add_includedirs("src")
+
+    after_build(function (target)
+        local pydir = path.join(os.projectdir(), "pymatio")
+        os.cp(target:targetfile(), pydir)
+    end)

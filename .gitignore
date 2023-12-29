@@ -12,5 +12,7 @@
 *.dll
 *.pyd
 *.pyc
+.pytest_cache
 
 /setup.py
+/libpymatio

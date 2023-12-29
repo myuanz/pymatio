@@ -12,8 +12,8 @@ namespace matio {
         * MAT file access types
         */
     enum MatAcc {
-        RDONLY = MAT_ACC_RDONLY, /**< @brief Read only file access                */
-        RDWR = MAT_ACC_RDWR    /**< @brief Read/Write file access               */
+        RDONLY = MAT_ACC_RDONLY,   /**< @brief Read only file access                */
+        RDWR   = MAT_ACC_RDWR      /**< @brief Read/Write file access               */
     };
 
     /** @brief Matlab MAT File information
@@ -33,10 +33,10 @@ namespace matio {
      * MAT file versions
      */
     enum MatFt {
-        MAT7_3 = MAT_FT_MAT73, /**< @brief Matlab version 7.3 file             */
-        MAT5 = MAT_FT_MAT5,  /**< @brief Matlab version 5 file               */
-        MAT4 = MAT_FT_MAT4,  /**< @brief Matlab version 4 file               */
-        UNDEFINED = MAT_FT_UNDEFINED   /**< @brief Undefined version                   */
+        MAT7_3    = MAT_FT_MAT73,     /**< @brief Matlab version 7.3 file             */
+        MAT5      = MAT_FT_MAT5,      /**< @brief Matlab version 5 file               */
+        MAT4      = MAT_FT_MAT4,      /**< @brief Matlab version 4 file               */
+        UNDEFINED = MAT_FT_UNDEFINED  /**< @brief Undefined version                   */
     };
 
     /** @brief Complex data type using split storage
@@ -70,27 +70,27 @@ namespace matio {
      * Matlab data types
      */
     enum MatioTypes {
-        T_UNKNOWN = MAT_T_UNKNOWN,     /**< @brief UNKNOWN data type                   */
-        T_INT8 = MAT_T_INT8,        /**< @brief 8-bit signed integer data type      */
-        T_UINT8 = MAT_T_UINT8,       /**< @brief 8-bit unsigned integer data type    */
-        T_INT16 = MAT_T_INT16,       /**< @brief 16-bit signed integer data type     */
-        T_UINT16 = MAT_T_UINT16,      /**< @brief 16-bit unsigned integer data type   */
-        T_INT32 = MAT_T_INT32,       /**< @brief 32-bit signed integer data type     */
-        T_UINT32 = MAT_T_UINT32,      /**< @brief 32-bit unsigned integer data type   */
-        T_SINGLE = MAT_T_SINGLE,      /**< @brief IEEE 754 single precision data type */
-        T_DOUBLE = MAT_T_DOUBLE,      /**< @brief IEEE 754 double precision data type */
-        T_INT64 = MAT_T_INT64,      /**< @brief 64-bit signed integer data type     */
-        T_UINT64 = MAT_T_UINT64,     /**< @brief 64-bit unsigned integer data type   */
-        T_MATRIX = MAT_T_MATRIX,     /**< @brief matrix data type                    */
-        T_COMPRESSED = MAT_T_COMPRESSED, /**< @brief compressed data type                */
-        T_UTF8 = MAT_T_UTF8,       /**< @brief 8-bit Unicode text data type        */
-        T_UTF16 = MAT_T_UTF16,      /**< @brief 16-bit Unicode text data type       */
-        T_UTF32 = MAT_T_UTF32,      /**< @brief 32-bit Unicode text data type       */
-        T_STRING = MAT_T_STRING,  /**< @brief String data type                    */
-        T_CELL = MAT_T_CELL,    /**< @brief Cell array data type                */
-        T_STRUCT = MAT_T_STRUCT,  /**< @brief Structure data type                 */
-        T_ARRAY = MAT_T_ARRAY,   /**< @brief Array data type                     */
-        T_FUNCTION = MAT_T_FUNCTION /**< @brief Function data type                  */
+        T_UNKNOWN    = MAT_T_UNKNOWN,      /**< @brief UNKNOWN data type                   */
+        T_INT8       = MAT_T_INT8,         /**< @brief 8-bit signed integer data type      */
+        T_UINT8      = MAT_T_UINT8,        /**< @brief 8-bit unsigned integer data type    */
+        T_INT16      = MAT_T_INT16,        /**< @brief 16-bit signed integer data type     */
+        T_UINT16     = MAT_T_UINT16,       /**< @brief 16-bit unsigned integer data type   */
+        T_INT32      = MAT_T_INT32,        /**< @brief 32-bit signed integer data type     */
+        T_UINT32     = MAT_T_UINT32,       /**< @brief 32-bit unsigned integer data type   */
+        T_SINGLE     = MAT_T_SINGLE,       /**< @brief IEEE 754 single precision data type */
+        T_DOUBLE     = MAT_T_DOUBLE,       /**< @brief IEEE 754 double precision data type */
+        T_INT64      = MAT_T_INT64,        /**< @brief 64-bit signed integer data type     */
+        T_UINT64     = MAT_T_UINT64,       /**< @brief 64-bit unsigned integer data type   */
+        T_MATRIX     = MAT_T_MATRIX,       /**< @brief matrix data type                    */
+        T_COMPRESSED = MAT_T_COMPRESSED,   /**< @brief compressed data type                */
+        T_UTF8       = MAT_T_UTF8,         /**< @brief 8-bit Unicode text data type        */
+        T_UTF16      = MAT_T_UTF16,        /**< @brief 16-bit Unicode text data type       */
+        T_UTF32      = MAT_T_UTF32,        /**< @brief 32-bit Unicode text data type       */
+        T_STRING     = MAT_T_STRING,       /**< @brief String data type                    */
+        T_CELL       = MAT_T_CELL,         /**< @brief Cell array data type                */
+        T_STRUCT     = MAT_T_STRUCT,       /**< @brief Structure data type                 */
+        T_ARRAY      = MAT_T_ARRAY,        /**< @brief Array data type                     */
+        T_FUNCTION   = MAT_T_FUNCTION      /**< @brief Function data type                  */
     };
 
     /** @brief Matlab variable classes
@@ -99,24 +99,24 @@ namespace matio {
      * Matlab variable classes
      */
     enum MatioClasses {
-        C_EMPTY = MAT_C_EMPTY,     /**< @brief Empty array                           */
-        C_CELL = MAT_C_CELL,      /**< @brief Matlab cell array class               */
-        C_STRUCT = MAT_C_STRUCT,    /**< @brief Matlab structure class                */
-        C_OBJECT = MAT_C_OBJECT,    /**< @brief Matlab object class                   */
-        C_CHAR = MAT_C_CHAR,      /**< @brief Matlab character array class          */
-        C_SPARSE = MAT_C_SPARSE,    /**< @brief Matlab sparse array class             */
-        C_DOUBLE = MAT_C_DOUBLE,    /**< @brief Matlab double-precision class         */
-        C_SINGLE = MAT_C_SINGLE,    /**< @brief Matlab single-precision class         */
-        C_INT8 = MAT_C_INT8,      /**< @brief Matlab signed 8-bit integer class     */
-        C_UINT8 = MAT_C_UINT8,     /**< @brief Matlab unsigned 8-bit integer class   */
-        C_INT16 = MAT_C_INT16,    /**< @brief Matlab signed 16-bit integer class    */
-        C_UINT16 = MAT_C_UINT16,   /**< @brief Matlab unsigned 16-bit integer class  */
-        C_INT32 = MAT_C_INT32,    /**< @brief Matlab signed 32-bit integer class    */
-        C_UINT32 = MAT_C_UINT32,   /**< @brief Matlab unsigned 32-bit integer class  */
-        C_INT64 = MAT_C_INT64,    /**< @brief Matlab signed 64-bit integer class    */
-        C_UINT64 = MAT_C_UINT64,   /**< @brief Matlab unsigned 64-bit integer class  */
-        C_FUNCTION = MAT_C_FUNCTION, /**< @brief Matlab function class                 */
-        C_OPAQUE = MAT_C_OPAQUE    /**< @brief Matlab opaque class                   */
+        C_EMPTY    = MAT_C_EMPTY,      /**< @brief Empty array                           */
+        C_CELL     = MAT_C_CELL,       /**< @brief Matlab cell array class               */
+        C_STRUCT   = MAT_C_STRUCT,     /**< @brief Matlab structure class                */
+        C_OBJECT   = MAT_C_OBJECT,     /**< @brief Matlab object class                   */
+        C_CHAR     = MAT_C_CHAR,       /**< @brief Matlab character array class          */
+        C_SPARSE   = MAT_C_SPARSE,     /**< @brief Matlab sparse array class             */
+        C_DOUBLE   = MAT_C_DOUBLE,     /**< @brief Matlab double-precision class         */
+        C_SINGLE   = MAT_C_SINGLE,     /**< @brief Matlab single-precision class         */
+        C_INT8     = MAT_C_INT8,       /**< @brief Matlab signed 8-bit integer class     */
+        C_UINT8    = MAT_C_UINT8,      /**< @brief Matlab unsigned 8-bit integer class   */
+        C_INT16    = MAT_C_INT16,      /**< @brief Matlab signed 16-bit integer class    */
+        C_UINT16   = MAT_C_UINT16,     /**< @brief Matlab unsigned 16-bit integer class  */
+        C_INT32    = MAT_C_INT32,      /**< @brief Matlab signed 32-bit integer class    */
+        C_UINT32   = MAT_C_UINT32,     /**< @brief Matlab unsigned 32-bit integer class  */
+        C_INT64    = MAT_C_INT64,      /**< @brief Matlab signed 64-bit integer class    */
+        C_UINT64   = MAT_C_UINT64,     /**< @brief Matlab unsigned 64-bit integer class  */
+        C_FUNCTION = MAT_C_FUNCTION,   /**< @brief Matlab function class                 */
+        C_OPAQUE   = MAT_C_OPAQUE      /**< @brief Matlab opaque class                   */
     };
 
     /** @brief MAT file compression options
@@ -135,10 +135,10 @@ namespace matio {
      * Matlab array flags
      */
     enum MatioFlags {
-        COMPLEX = MAT_F_COMPLEX,       /**< @brief Complex bit flag */
-        GLOBAL = MAT_F_GLOBAL,        /**< @brief Global bit flag */
-        LOGICAL = MAT_F_LOGICAL,       /**< @brief Logical bit flag */
-        DONT_COPY_DATA = MAT_F_DONT_COPY_DATA /**< Don't copy data, use keep the pointer */
+        COMPLEX        = MAT_F_COMPLEX,        /**< @brief Complex bit flag */
+        GLOBAL         = MAT_F_GLOBAL,         /**< @brief Global bit flag */
+        LOGICAL        = MAT_F_LOGICAL,        /**< @brief Logical bit flag */
+        DONT_COPY_DATA = MAT_F_DONT_COPY_DATA  /**< Don't copy data, use keep the pointer */
     };
 
     /** @brief Get the version of the library

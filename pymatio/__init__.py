@@ -4,12 +4,14 @@ import sys
 from pathlib import Path
 import sysconfig
 
-dll_files = list(Path(__file__).parent.glob("*.pyd"))
+_EXT_SUFFIX = sysconfig.get_config_var("EXT_SUFFIX")
+
+dll_files = list(Path(__file__).parent.glob(f'*{_EXT_SUFFIX}*'))
 if not dll_files:
     print('no dll files', flush=True)
     import time
     time.sleep(3600)
-target_dll = Path(__file__).with_name(f'libpymatio{sysconfig.get_config_var("EXT_SUFFIX")}')
+target_dll = Path(__file__).with_name(f'libpymatio{_EXT_SUFFIX}')
 print(f'{dll_files=} {target_dll=}')
 try:
 

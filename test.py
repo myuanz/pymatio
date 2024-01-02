@@ -1,24 +1,26 @@
-import _pymatio as pm
+# %%
+import pymatio as pm
 print(pm.get_library_version())
 print(pm.log_init('pymatio'))
 print(pm.set_debug(1))
 pm.critical("abcdefg%d,%d\n" % (234, 456,))
-#pymatio.help(('111', '222',))
 mat = pm.create_ver('test.mat', None, pm.MatFt.MAT73)
 
 var1 = pm.var_create('var1', pm.MatioClasses.DOUBLE, pm.MatioTypes.DOUBLE, 2, (2, 3,), (1, 2, 3, 4, 5, 6,), 0)
 pm.var_write(mat, var1, pm.MatioCompression.NONE)
 pm.var_free(var1)
+print(mat.filename, mat.version, mat.fp, mat.header, mat.byte_swap, mat.mode, mat.bof, mat.next_index, mat.num_datasets, mat.refs_id, mat.dir)
 
 pm.close(mat)
 exit(0)
 
-print(mat.filename, mat.version, mat.fp, mat.header, mat.byte_swap, mat.mode, mat.bof, mat.next_index, mat.num_datasets, mat.refs_id, mat.dir)
+# %%
 mat2 = pm.open('test.mat', pm.MatAcc.RDONLY)
 print(mat2)
 print(pm.get_file_access_mode(mat2))
 print(pm.var_read_next(mat))
-print(pm.close(mat), pm.close(mat2))
+print(pm.close(mat2))
+
 dims = (256, 256, 124,)
 subs = pm.calc_subscripts2(3, dims, 18921 - 1)
 pm.message('subs: %s' % subs)
@@ -46,3 +48,7 @@ var2 = pm.var_get_structs_linear(cell, 0, 1, 3, 0)
 pm.var_print(var2, 1)
 var3 = pm.var_get_cells_linear(cell, 0, 1, 1)
 pm.var_print(var3, 1)
+
+pm.var_write(mat, var, pm.MatioCompression.NONE)
+pm.var_write(mat, cell, pm.MatioCompression.NONE)
+

@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import sysconfig
 from pathlib import Path
@@ -27,6 +28,9 @@ class XmakeBuildExt(build_ext):
         if curr_arch is None:
             raise Exception(f'Unsupported platform: {platform}, allowed: {xmake_archs}')
         logging.debug(f"{curr_arch=} {platform=}")
+        # 检查xmake是否存在
+        if not shutil.which("xmake"):
+            raise EnvironmentError("xmake is not installed or not found in PATH. \nTo install xmake, please refer to https://xmake.io/#/guide/installation")
         subprocess.run(["xmake", "config", "-c", "-a", curr_arch, "-v", "-D", '-y'])
         subprocess.run(["xmake", "build", '-y', '-v', '-D'])
 

@@ -80,6 +80,8 @@ pybind11::class_<matio::MatT>(m, "MatT", "Matlab MAT File information.")
     .def_readwrite("num_datasets", &matio::MatT::num_datasets, "Number of datasets in the file.")
 #if defined(MAT73) && MAT73
     .def_readwrite("refs_id", &matio::MatT::refs_id, "Id of the /#refs# group in HDF5.")
+#else
+    .def_readwrite("refs_id", [](const matio::MatT&) -> int { PyErr_SetString(PyExc_RuntimeError, "refs_id is not available without HDF5(mat73) support."); throw pybind11::error_already_set(); }, "Id of the /#refs# group in HDF5.")
 #endif
     .def_property_readonly("dir", &matio::MatT::get_dir, pybind11::return_value_policy::move, "Names of the datasets in the file.")
     .def_property("mode", &matio::MatT::get_mode, &matio::MatT::set_mode, "Access mode.");

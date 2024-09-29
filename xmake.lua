@@ -12,10 +12,10 @@ package("_matio")
     add_versions("v1.5.27", "2efe7c4a206885287c0f56128f3a36aa6e453077d03e4c2c42cdce9d332b67eb")
     add_versions("v1.5.26", "4aa5ac827ee49a3111f88f8d9b8ae034b8757384477e8f29cb64582c7d54e156")
 
-    add_configs("zlib", {description = "Build with zlib support", default = false, type = "boolean"})
-    add_configs("hdf5", {description = "Build with hdf5 support", default = false, type = "boolean"})
+    add_configs("zlib", {description = "Build with zlib support", default = true, type = "boolean"})
+    add_configs("hdf5", {description = "Build with hdf5 support", default = true, type = "boolean"})
     add_configs("extended_sparse", {description = "Enable extended sparse matrix data types not supported in MATLAB", default = false, type = "boolean"})
-    add_configs("mat73", {description = "Enable support for version 7.3 MAT files", default = false, type = "boolean"})
+    add_configs("mat73", {description = "Enable support for version 7.3 MAT files", default = true, type = "boolean"})
     add_configs("default_file_version", {description = "Select what MAT file format version is used by default", default = "5", type = "string", values = {"4", "5", "7.5"}})
 
     add_deps("cmake")

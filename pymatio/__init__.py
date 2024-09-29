@@ -4,17 +4,9 @@ import sys
 from pathlib import Path
 import sysconfig
 
-_EXT_SUFFIX = sysconfig.get_config_var("EXT_SUFFIX")
+EXT_SUFFIX = sysconfig.get_config_var("EXT_SUFFIX")
 
-dll_files = list(Path(__file__).parent.glob(f'*{_EXT_SUFFIX}*'))
-if not dll_files:
-    print('no dll files', flush=True)
-    import time
-    time.sleep(3600)
-
-# target_dll = Path(__file__).with_name(f'pymatio{_EXT_SUFFIX}')
-target_dll = dll_files[0]
-print(f'{dll_files=} {target_dll=}')
+target_dll = Path(__file__).parent / f'libpymatio{EXT_SUFFIX}'
 try:
 
     spec = importlib.util.spec_from_file_location("libpymatio", target_dll)
@@ -24,8 +16,7 @@ try:
 except Exception as e:
     import traceback
     traceback.print_exc()
-    import time 
-    time.sleep(3600)
+    raise
 
 from libpymatio import get_library_version
 from libpymatio import *

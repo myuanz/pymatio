@@ -5,7 +5,7 @@ description = ""
 authors = ["zhengmy <zhengmy@ion.ac.cn>"]
 license = "GPL"
 readme = "README.md"
-packages = [{include = "pymatio"}]
+packages = [{include = "pymatio"}, {include = "xmake.lua"}, {include = "src"}]
 
 [tool.poetry.build]
 script = "build_arg.py"

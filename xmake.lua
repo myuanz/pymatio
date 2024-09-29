@@ -9,6 +9,7 @@ package("_matio")
     add_urls("https://github.com/tbeu/matio/archive/refs/tags/$(version).tar.gz",
              "https://github.com/tbeu/matio.git", {submodules = false})
 
+    add_versions("v1.5.27", "2efe7c4a206885287c0f56128f3a36aa6e453077d03e4c2c42cdce9d332b67eb")
     add_versions("v1.5.26", "4aa5ac827ee49a3111f88f8d9b8ae034b8757384477e8f29cb64582c7d54e156")
 
     add_configs("zlib", {description = "Build with zlib support", default = false, type = "boolean"})
@@ -81,6 +82,13 @@ target("libpymatio")
     print(os.getenv("PATH"))
     after_build(function (target)
         local pydir = path.join(os.projectdir(), "pymatio")
+        local target_file_name = path.filename(target:targetfile())
+
+        -- remove the prefix "lib"
+        local target_file_name = target_file_name:sub(4, -1)
+        local target_file = path.join(pydir, target_file_name)
+        print("target_file: " .. target_file)
+
         -- local pydir = path.join("$(buildir)", "binary")
         -- os.mkdir(pydir)
 
@@ -90,5 +98,5 @@ target("libpymatio")
         -- f:write("pydir " .. pydir .. "\n")
         -- f:write("target:targetfile() " .. target:targetfile() .. "\n")
 
-        os.cp(target:targetfile(), pydir)
+        os.cp(target:targetfile(), target_file)
     end)

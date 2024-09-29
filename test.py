@@ -1,15 +1,17 @@
 # %%
 import pymatio as pm
-print(pm.get_library_version())
-print(pm.log_init('pymatio'))
-print(pm.set_debug(1))
+print(f'{pm.get_library_version()=}')
+# print(f'{pm.log_init('pymatio')=}')
+print(f'{pm.set_debug(True)=}')
 pm.critical("abcdefg%d,%d\n" % (234, 456,))
 mat = pm.create_ver('test.mat', None, pm.MatFt.MAT73)
-
+print(mat)
 var1 = pm.var_create('var1', pm.MatioClasses.DOUBLE, pm.MatioTypes.DOUBLE, 2, (2, 3,), (1, 2, 3, 4, 5, 6,), 0)
 pm.var_write(mat, var1, pm.MatioCompression.NONE)
 pm.var_free(var1)
-print(mat.filename, mat.version, mat.fp, mat.header, mat.byte_swap, mat.mode, mat.bof, mat.next_index, mat.num_datasets, mat.refs_id, mat.dir)
+print(var1)
+
+print(f'{mat.filename=}, {mat.version=}, {mat.fp=}, {mat.header=}, {mat.byte_swap=}, {mat.mode=}, {mat.bof=}, {mat.next_index=}, {mat.num_datasets=}, {mat.refs_id=}')
 
 pm.close(mat)
 exit(0)

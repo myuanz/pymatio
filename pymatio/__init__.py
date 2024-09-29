@@ -11,7 +11,9 @@ if not dll_files:
     print('no dll files', flush=True)
     import time
     time.sleep(3600)
-target_dll = Path(__file__).with_name(f'libpymatio{_EXT_SUFFIX}')
+
+# target_dll = Path(__file__).with_name(f'pymatio{_EXT_SUFFIX}')
+target_dll = dll_files[0]
 print(f'{dll_files=} {target_dll=}')
 try:
 
@@ -20,8 +22,10 @@ try:
     sys.modules["libpymatio"] = libpymatio
     spec.loader.exec_module(libpymatio)
 except Exception as e:
-    print(e, flush=True)
+    import traceback
+    traceback.print_exc()
     import time 
     time.sleep(3600)
 
 from libpymatio import get_library_version
+from libpymatio import *

@@ -1,24 +1,23 @@
 # %%
 import pymatio as pm
 print(f'{pm.get_library_version()=}')
-# print(f'{pm.log_init('pymatio')=}')
+print(f'{pm.log_init('pymatio')=}')
 print(f'{pm.set_debug(True)=}')
-pm.critical("abcdefg%d,%d\n" % (234, 456,))
+# %%
 mat = pm.create_ver('test.mat', None, pm.MatFt.MAT73)
-print(mat)
 var1 = pm.var_create('var1', pm.MatioClasses.DOUBLE, pm.MatioTypes.DOUBLE, 2, (2, 3,), (1, 2, 3, 4, 5, 6,), 0)
+pm.var_print(var1, 0)
+
 pm.var_write(mat, var1, pm.MatioCompression.NONE)
 pm.var_free(var1)
-print(var1)
 
 print(f'{mat.filename=}, {mat.version=}, {mat.fp=}, {mat.header=}, {mat.byte_swap=}, {mat.mode=}, {mat.bof=}, {mat.next_index=}, {mat.num_datasets=}, {mat.refs_id=}')
-
-pm.close(mat)
-exit(0)
+print(f'{pm.close(mat)=}')
+# exit(0)
 
 # %%
 mat2 = pm.open('test.mat', pm.MatAcc.RDONLY)
-print(mat2)
+print(f'{mat2=}')
 print(pm.get_file_access_mode(mat2))
 print(pm.var_read_next(mat))
 print(pm.close(mat2))
@@ -54,3 +53,5 @@ pm.var_print(var3, 1)
 pm.var_write(mat, var, pm.MatioCompression.NONE)
 pm.var_write(mat, cell, pm.MatioCompression.NONE)
 
+
+# %%

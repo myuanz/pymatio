@@ -83,15 +83,15 @@ package("_pybind11")
     add_versions("v2.12.0", "411f77380c43798506b39ec594fc7f2b532a13c4db674fcf2b1ca344efaefb68")
     add_versions("v2.13.1", "a3c9ea1225cb731b257f2759a0c12164db8409c207ea5cf851d4b95679dda072")
 
-    add_deps("cmake")
+    add_deps("cmake", "python")
 
     on_install("windows|native", "macosx", "linux", function (package)
         import("package.tools.cmake").install(package, {
             "-DPYBIND11_TEST=OFF",
-            "-DPYTHON_EXECUTABLE=$(env XMAKE_PYTHON_BIN)",
-            "-DPYTHON_INCLUDE_DIR=$(env XMAKE_PYTHON_INCLUDE)",
-            "-DPYTHON_LIBRARY=$(env XMAKE_PYTHON_LIB)",
-            "-DPYTHON_SITE_PACKAGES=$(env XMAKE_PYTHON_SITE_PACKAGES)",
+            -- "-DPYTHON_EXECUTABLE=$(env XMAKE_PYTHON_BIN)",
+            -- "-DPYTHON_INCLUDE_DIR=$(env XMAKE_PYTHON_INCLUDE)",
+            -- "-DPYTHON_LIBRARY=$(env XMAKE_PYTHON_LIB)",
+            -- "-DPYTHON_SITE_PACKAGES=$(env XMAKE_PYTHON_SITE_PACKAGES)",
         })
     end)
 
@@ -116,7 +116,7 @@ add_requires("_matio", {
     configs = {zlib = true, hdf5 = true, mat73 = true},
 })
 add_requires("_pybind11")
--- add_requires("python", {system = true})
+add_requires("python", {system = true})
 
 -- add_requireconfs("pybind11", {override = true}) -- 如果系统自带了 pybind11，偶尔会出现一些问题，所以这里一定要用 xrepo 的
 -- add_requireconfs("pybind11")

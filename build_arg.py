@@ -44,16 +44,19 @@ class XmakeBuildExt(build_ext):
                 f"xmake is not installed or not found in PATH. \nTo install xmake, please refer to https://xmake.io/#/guide/installation\n"
                 f"PATH: {os.environ['PATH']}"
             )
+        sep = ";" if os.name == "nt" else ":"
         env = {
             **os.environ,
-            "XMAKE_PYTHON_INCLUDE": python_include, 
-            "XMAKE_PYTHON_LIB": python_lib,
-            "XMAKE_PYTHON_VERSION": python_version,
-            "XMAKE_PYTHON_SITE_PACKAGES": python_site_packages,
-            "XMAKE_PYTHON_BIN": python_bin,
-            "PATH": f"{python_bin}:{python_site_packages}:{os.environ['PATH']}",
+            "XMAKE_PYTHON_INCLUDE": python_include or '', 
+            "XMAKE_PYTHON_LIB": python_lib or '',
+            "XMAKE_PYTHON_VERSION": python_version or '',
+            "XMAKE_PYTHON_SITE_PACKAGES": python_site_packages or '',
+            "XMAKE_PYTHON_BIN": python_bin or '',
+            "PATH": f"{python_bin}{sep}{python_site_packages}{sep}{os.environ['PATH']}",
         }
-        print(env)
+        for k, v in env.items():
+            print(f"{k}={v} {type(v)}")
+
 
         # subprocess.run(["xmake", "config", "-c", "-a", curr_arch, "-v", "-D", '-y', f"--includedirs={python_include}", f"--linkdirs={python_lib}"])
         subprocess.run(["xmake", "config", "-c", "-a", curr_arch, "-v", "-D", '-y'], env=env)

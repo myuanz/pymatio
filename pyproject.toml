@@ -21,8 +21,13 @@ pybind11 = "^2"
 cibuildwheel = "^2.16.2"
 pytest = "^7.4.3"
 
+[[tool.poetry.source]]
+name = "tsinghua"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+priority = "default"
+
 [build-system]
-requires = ["poetry-core", "setuptools"]
+requires = ["poetry-core", "setuptools", "pybind11"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.cibuildwheel]
@@ -35,4 +40,10 @@ build-frontend = "build"
 test-requires = "pytest"
 test-command = "pytest {project}/tests"
 
-linux.before-all = "tools/prepare_linux.bash"
+linux.before-all = "env"
+# linux.before-all = "bash {project}/tools/prepare_linux.bash"
+# linux.environment = { PATH = "$HOME/.local/bin/:$PATH", XMAKE_ROOT = "y" }
+# linux.before-build = "source ~/.xmake/profile"
+linux.container-engine = "podman"
+linux.manylinux-x86_64-image = "xmake-base"
+

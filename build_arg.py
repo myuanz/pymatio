@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 import sysconfig
 from pathlib import Path
 import logging
@@ -28,11 +29,35 @@ class XmakeBuildExt(build_ext):
         if curr_arch is None:
             raise Exception(f'Unsupported platform: {platform}, allowed: {xmake_archs}')
         logging.debug(f"{curr_arch=} {platform=}")
+        python_include = sysconfig.get_path('include')
+        python_lib = sysconfig.get_config_var('LIBDIR')
+        python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+        python_bin = sysconfig.get_path("scripts")
+        python_site_packages = sysconfig.get_path("purelib")
+
+        print(f'{python_include=} {python_lib=} {python_version=} {python_bin=} {python_site_packages=}')
+        print(list(Path(python_bin).parent.glob("*")))
+
         # 检查xmake是否存在
         if not shutil.which("xmake"):
-            raise EnvironmentError("xmake is not installed or not found in PATH. \nTo install xmake, please refer to https://xmake.io/#/guide/installation")
-        subprocess.run(["xmake", "config", "-c", "-a", curr_arch, "-v", "-D", '-y'])
-        subprocess.run(["xmake", "build", '-y', '-v', '-D'])
+            raise EnvironmentError(
+                f"xmake is not installed or not found in PATH. \nTo install xmake, please refer to https://xmake.io/#/guide/installation\n"
+                f"PATH: {os.environ['PATH']}"
+            )
+        env = {
+            **os.environ,
+            "XMAKE_PYTHON_INCLUDE": python_include, 
+            "XMAKE_PYTHON_LIB": python_lib,
+            "XMAKE_PYTHON_VERSION": python_version,
+            "XMAKE_PYTHON_SITE_PACKAGES": python_site_packages,
+            "XMAKE_PYTHON_BIN": python_bin,
+            "PATH": f"{python_bin}:{python_site_packages}:{os.environ['PATH']}",
+        }
+        print(env)
+
+        # subprocess.run(["xmake", "config", "-c", "-a", curr_arch, "-v", "-D", '-y', f"--includedirs={python_include}", f"--linkdirs={python_lib}"])
+        subprocess.run(["xmake", "config", "-c", "-a", curr_arch, "-v", "-D", '-y'], env=env)
+        subprocess.run(["xmake", "build", '-y', '-v', '-D'], env=env)
 
 
     def copy_output_file(self):

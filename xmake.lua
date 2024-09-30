@@ -78,25 +78,31 @@ target("libpymatio")
     -- add_cxxflags("$(shell python -m pybind11 --includes)")
     add_files("src/*.cpp")
     add_includedirs("src")
-    print(os.getenv("PYTHONPATH"))
-    print(os.getenv("PATH"))
-    after_build(function (target)
-        -- local pydir = path.join(os.projectdir(), "pymatio")
-        -- local target_file_name = path.filename(target:targetfile())
 
-        -- remove the prefix "lib"
-        -- local target_file_name = target_file_name:sub(4, -1)
-        -- local target_file = path.join(pydir, target_file_name)
-        -- print("target_file: " .. target_file)
+    -- Windows 下，生成的文件名是 libpymatio，但 Linux 下会是 liblibpymatio，所以这里手动设置前缀和基本名称
+    set_prefixname("")
+    set_basename("libpymatio")
 
-        -- local pydir = path.join("$(buildir)", "binary")
-        -- os.mkdir(pydir)
+    -- print(os.getenv("PYTHONPATH"))
+    -- print(os.getenv("PATH"))
 
-        -- local f = io.open("C:/Users/myuan/logs/log.log", "w")
-        -- os.rm(pydir .. "/*.pyd")
-        -- os.rm(pydir .. "/*.so")
-        -- f:write("pydir " .. pydir .. "\n")
-        -- f:write("target:targetfile() " .. target:targetfile() .. "\n")
+    -- after_build(function (target)
+    --     -- local pydir = path.join(os.projectdir(), "pymatio")
+    --     -- local target_file_name = path.filename(target:targetfile())
 
-        -- os.cp(target:targetfile(), target_file)
-    end)
+    --     -- remove the prefix "lib"
+    --     -- local target_file_name = target_file_name:sub(4, -1)
+    --     -- local target_file = path.join(pydir, target_file_name)
+    --     -- print("target_file: " .. target_file)
+
+    --     -- local pydir = path.join("$(buildir)", "binary")
+    --     -- os.mkdir(pydir)
+
+    --     -- local f = io.open("C:/Users/myuan/logs/log.log", "w")
+    --     -- os.rm(pydir .. "/*.pyd")
+    --     -- os.rm(pydir .. "/*.so")
+    --     -- f:write("pydir " .. pydir .. "\n")
+    --     -- f:write("target:targetfile() " .. target:targetfile() .. "\n")
+
+    --     -- os.cp(target:targetfile(), target_file)
+    -- end)

@@ -62,18 +62,70 @@ package("_matio")
     end)
 package_end()
 
+package("_pybind11")
+
+    set_kind("library", {headeronly = true})
+    set_homepage("https://github.com/pybind/pybind11")
+    set_description("Seamless operability between C++11 and Python.")
+    set_license("BSD-3-Clause")
+
+    add_urls("https://github.com/pybind/pybind11/archive/refs/tags/$(version).zip",
+             "https://github.com/pybind/pybind11.git")
+    add_versions("v2.13.6", "d0a116e91f64a4a2d8fb7590c34242df92258a61ec644b79127951e821b47be6")
+    add_versions("v2.13.5", "0b4f2d6a0187171c6d41e20cbac2b0413a66e10e014932c14fae36e64f23c565")
+    add_versions("v2.5.0", "1859f121837f6c41b0c6223d617b85a63f2f72132bae3135a2aa290582d61520")
+    add_versions("v2.6.2", "0bdb5fd9616fcfa20918d043501883bf912502843d5afc5bc7329a8bceb157b3")
+    add_versions("v2.7.1", "350ebf8f4c025687503a80350897c95d8271bf536d98261f0b8ed2c1a697070f")
+    add_versions("v2.8.1", "90907e50b76c8e04f1b99e751958d18e72c4cffa750474b5395a93042035e4a3")
+    add_versions("v2.9.1", "ef9e63be55b3b29b4447ead511a7a898fdf36847f21cec27a13df0db051ed96b")
+    add_versions("v2.9.2", "d1646e6f70d8a3acb2ddd85ce1ed543b5dd579c68b8fb8e9638282af20edead8")
+    add_versions("v2.10.0", "225df6e6dea7cea7c5754d4ed954e9ca7c43947b849b3795f87cb56437f1bd19")
+    add_versions("v2.12.0", "411f77380c43798506b39ec594fc7f2b532a13c4db674fcf2b1ca344efaefb68")
+    add_versions("v2.13.1", "a3c9ea1225cb731b257f2759a0c12164db8409c207ea5cf851d4b95679dda072")
+
+    add_deps("cmake")
+
+    on_install("windows|native", "macosx", "linux", function (package)
+        import("package.tools.cmake").install(package, {
+            "-DPYBIND11_TEST=OFF",
+            "-DPYTHON_EXECUTABLE=$(env XMAKE_PYTHON_BIN)",
+            "-DPYTHON_INCLUDE_DIR=$(env XMAKE_PYTHON_INCLUDE)",
+            "-DPYTHON_LIBRARY=$(env XMAKE_PYTHON_LIB)",
+            "-DPYTHON_SITE_PACKAGES=$(env XMAKE_PYTHON_SITE_PACKAGES)",
+        })
+    end)
+
+
+    on_test(function (package)
+        assert(package:check_cxxsnippets({test = [[
+            #include <pybind11/pybind11.h>
+            int add(int i, int j) {
+                return i + j;
+            }
+            PYBIND11_MODULE(example, m) {
+                m.def("add", &add, "A function which adds two numbers");
+            }
+        ]]}, {configs = {languages = "c++11"}}))
+    end)
+package_end()
+
 set_runtimes("MD")
 set_languages("cxx17")
 
 add_requires("_matio", {
     configs = {zlib = true, hdf5 = true, mat73 = true},
 })
-add_requires("pybind11")
-add_requireconfs("pybind11", {override = true}) -- 如果系统自带了 pybind11，偶尔会出现一些问题，所以这里一定要用 xrepo 的
+add_requires("_pybind11")
+-- add_requires("python", {system = true})
+
+-- add_requireconfs("pybind11", {override = true}) -- 如果系统自带了 pybind11，偶尔会出现一些问题，所以这里一定要用 xrepo 的
+-- add_requireconfs("pybind11")
 
 target("libpymatio")
     set_kind("shared")
-    add_packages("_matio", "pybind11")
+    add_packages("_matio", "_pybind11")
+    -- add_packages("_matio")
+
     set_extension("$(shell python -c \"print%(__import__%('sysconfig'%).get_config_var%('EXT_SUFFIX'%), end=''%)\")")
     -- add_cxxflags("$(shell python -m pybind11 --includes)")
     add_files("src/*.cpp")
@@ -82,6 +134,17 @@ target("libpymatio")
     -- Windows 下，生成的文件名是 libpymatio，但 Linux 下会是 liblibpymatio，所以这里手动设置前缀和基本名称
     set_prefixname("")
     set_basename("libpymatio")
+    before_build(function (target)
+        print("包含目录:")
+        for _, dir in ipairs(target:get("includedirs")) do
+            print(dir)
+        end
+        
+        print("\n库目录:")
+        for _, dir in ipairs(target:get("libdirs")) do
+            print(dir)
+        end
+    end)
 
     -- print(os.getenv("PYTHONPATH"))
     -- print(os.getenv("PATH"))

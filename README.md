@@ -59,3 +59,11 @@ None
 test.mat 512 <capsule object NULL at 0x7f85197b3fc0> MATLAB 7.3 MAT-file, Platform: x86_64-pc-Linux, Created by: libmatio v1.5.26 on Tue Dec 26 15:49:00 2023
  HDF5 sche 0 MatAcc.RDWR 128 0 1 -1 []
  ```
+
+# 从源代码构建
+
+```bash
+$ cd dockerfiles
+$ docker build -f ./Dockerfile.musllinux -t pymatio-base-musllinux:latest .
+$ docker build -f ./Dockerfile.manylinux -t pymatio-base-manylinux:latest .
+```

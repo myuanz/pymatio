@@ -61,7 +61,8 @@ class XmakeBuildExt(build_ext):
             "PATH": f"{python_bin}{sep}{python_site_packages}{sep}{os.environ['PATH']}",
             "XMAKE_PYBIND11_INCLUDE": pybind11_include,
         }
-        subprocess.run(["env"], env=env)
+        if os.name != 'nt':
+            subprocess.run(["env"], env=env)
         if os.environ.get("SLEEP"):
             print("sleep 100000")
             os.system("sleep 100000")

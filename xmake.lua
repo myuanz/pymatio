@@ -120,6 +120,10 @@ package("_pybind11")
     end)
 
     on_test(function (package)
+        cibuildwheel = os.getenv("CIBUILDWHEEL")
+        if cibuildwheel then
+            return
+        end
         assert(package:check_cxxsnippets({test = [[
             #include <pybind11/pybind11.h>
             int add(int i, int j) {

@@ -40,10 +40,10 @@ build-frontend = "build"
 test-requires = "pytest"
 test-command = "pytest {project}/tests"
 
-linux.before-all = "env"
+# linux.before-all = "env"
 # linux.before-all = "bash {project}/tools/prepare_linux.bash"
 # linux.environment = { PATH = "$HOME/.local/bin/:$PATH", XMAKE_ROOT = "y" }
 # linux.before-build = "source ~/.xmake/profile"
 linux.container-engine = "podman"
-linux.manylinux-x86_64-image = "xmake-base"
-
+linux.manylinux-x86_64-image = "pymatio-base-manylinux"
+linux.musllinux-x86_64-image = "pymatio-base-musllinux"

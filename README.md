@@ -1,20 +1,18 @@
 [中文](./README.md) [English](./README_en.md)
 
-# 背景
+## 背景
 
 Python 中始终没有一个一站式读取 mat 文件的库，mat5 总是依赖 scipy.io, mat7.3 总是依赖 h5py，h5py 直接读取 mat 文件又需要很多手动转换，有一个 mat73 转换，但是核心逻辑是纯 Python 写的，又非常慢。
 
 恰巧 C 中有一个库 [matio](https://github.com/tbeu/matio)，我就想用 pybind11 做一个绑定。
 
-# 安装
+## 安装
 
 ```
 pip install pymatio
 ```
 
-我已构建了针对多平台的 whl 文件, 如果你想要从源代码安装, 参考
-
-## 对于苹果用户
+### 对于苹果用户
 
 我没有苹果设备, 经过若干次尝试, 我也无法正确在 Github Actions 里构建 whl 文件. 你可
 
@@ -95,14 +93,18 @@ $ podman push docker.io/myuanz/pymatio-base-manylinux:latest
 
 # 路线
 
-- [x] 完成基本函数的绑定
+- [x] 完成 matio 中基本函数的绑定
 - [x] 使用 xmake 在 Windows 和 Linux 上编译通过
 - [x] 打包为 whl 文件
 - [x] 添加关于构建成功的基本测试
 - [x] 添加 cibuildwheel 打包 whl
-- [ ] Github Action
-- [ ] 吸取 https://github.com/pybind/scikit_build_example 中的优势
+- [x] Github Action
 - [x] 编译扩展时自动处理虚拟环境
-- [ ] 添加更 Pythonic 的调用接口
-- [ ] 添加 benchmark
+
+- [ ] 完成 loadmat 和 savemat
 - [ ] 导入 scio 的测试和 mat73 的测试
+- [ ] 添加更 Pythonic 的调用接口
+- [ ] 添加 types
+- [ ] 添加 benchmark
+- [ ] 吸取 https://github.com/pybind/scikit_build_example 中的优势
+

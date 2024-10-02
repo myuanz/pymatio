@@ -47,3 +47,5 @@ test-command = "pytest {project}/tests"
 linux.container-engine = "podman"
 linux.manylinux-x86_64-image = "docker.io/myuanz/pymatio-base-manylinux:latest"
 linux.musllinux-x86_64-image = "docker.io/myuanz/pymatio-base-musllinux:latest"
+
+# macos.archs = ["arm64", "x86_64"]

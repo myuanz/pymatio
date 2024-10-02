@@ -1,6 +1,23 @@
 name: Build
 
-on: [push, pull_request, workflow_call]
+on: 
+  push:
+    paths:
+      - '**.toml'
+      - '**.py'
+      - '**.cpp'
+      - '**.h'
+      - '**.c'
+      - 'xmake.lua'
+  pull_request:
+    paths:
+      - '**.toml'
+      - '**.py'
+      - '**.cpp'
+      - '**.h'
+      - '**.c'
+      - 'xmake.lua'
+  workflow_call:
 
 jobs:
   build_wheels:

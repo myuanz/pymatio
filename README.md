@@ -16,7 +16,10 @@ pip install pymatio
 
 ## 对于苹果用户
 
-我没有苹果设备, 你可安装 [xmake](https://xmake.io/#/getting_started?id=installation) 后运行`pip install pymatio`, xmake 会帮助你从源代码构建出 Python whl 文件. 
+我没有苹果设备, 经过若干次尝试, 我也无法正确在 Github Actions 里构建 whl 文件. 你可
+
+1. 安装 [xmake](https://xmake.io/#/getting_started?id=installation)
+2. 运行`pip install pymatio`, xmake 会帮助你从源代码构建出 Python whl 文件. 
 
 xmake 开发者在苹果设备做过详尽的测试, 理论上构建流程可以正常运行. 
 

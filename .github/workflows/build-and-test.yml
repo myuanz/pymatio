@@ -6,17 +6,18 @@ jobs:
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+
     strategy:
       matrix:
         # macos-13 is an intel runner, macos-14 is apple silicon
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-13, macos-14]
 
     steps:
       - uses: actions/checkout@v4
 
-        
-      - name: Build wheels
-        uses: xmake-io/github-action-setup-xmake@v1
+
+      - uses: xmake-io/github-action-setup-xmake@v1
+        name: Build wheels
         with:
           xmake-version: latest
       - run: pipx run cibuildwheel==2.21.1
@@ -25,3 +26,5 @@ jobs:
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
+          retention-days: 7
+

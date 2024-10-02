@@ -12,7 +12,8 @@ Python 中始终没有一个一站式读取 mat 文件的库，mat5 总是依赖
 - [x] 使用 xmake 在 Windows 和 Linux 上编译通过
 - [x] 打包为 whl 文件
 - [x] 添加关于构建成功的基本测试
-- [ ] 添加 cibuildwheel 和 Github Action
+- [x] 添加 cibuildwheel 打包 whl
+- [ ] Github Action
 - [ ] 吸取 https://github.com/pybind/scikit_build_example 中的优势
 - [x] 编译扩展时自动处理虚拟环境
 - [ ] 添加更 Pythonic 的调用接口

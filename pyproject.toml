@@ -24,7 +24,7 @@ pytest = "^7.4.3"
 [[tool.poetry.source]]
 name = "tsinghua"
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-priority = "default"
+priority = "primary"
 
 [build-system]
 requires = ["poetry-core", "setuptools", "pybind11"]

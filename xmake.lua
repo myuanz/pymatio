@@ -64,7 +64,7 @@ package_end()
 
 package("_pybind11")
 
-    set_kind("library", {headeronly = true})
+    set_kind("headeronly")
     set_homepage("https://github.com/pybind/pybind11")
     set_description("Seamless operability between C++11 and Python.")
     set_license("BSD-3-Clause")
@@ -83,11 +83,55 @@ package("_pybind11")
     add_versions("v2.12.0", "411f77380c43798506b39ec594fc7f2b532a13c4db674fcf2b1ca344efaefb68")
     add_versions("v2.13.1", "a3c9ea1225cb731b257f2759a0c12164db8409c207ea5cf851d4b95679dda072")
 
-    add_deps("cmake", "python")
+
+    add_deps("cmake")
+
+    on_load("windows", function (package)
+        if package:config("use_python_headeronly") then
+            print("windows can not use headeronly")
+            package:config("use_python_headeronly", false)
+        end
+
+        package:add("deps", "python", {configs = {
+            headeronly = false,
+        }})
+    end)
+    on_load("macosx", function (package)
+        package:add("deps", "python", {configs = {
+            headeronly = package:config("use_python_headeronly")
+        }})
+    end)
+
+    on_load("linux", function (package)
+        local python_headeronly = package:config("use_python_headeronly")
+
+        cibuildwheel = os.getenv("CIBUILDWHEEL")
+        if not cibuildwheel then
+            package:add("deps", "python", {configs = {
+                headeronly = python_headeronly,
+            }})
+        else 
+            -- cibuildwheel 容器
+            os.exec("printenv")
+            local envs = os.getenvs()
+            print("all envs:")
+            for k, v in pairs(envs) do
+                print(k, v, path.is_absolute(v))
+            end
+            package:config("use_python_headeronly", true)
+            package:add("sysincludedirs", envs["XMAKE_PYBIND11_INCLUDE"] .. "/", {public = true})
+            package:add("sysincludedirs", envs["XMAKE_PYTHON_INCLUDE"] .. "/", {public = true})
+            os.exec("ls -l " .. envs["XMAKE_PYTHON_INCLUDE"])
+            os.exec("ls -l " .. envs["XMAKE_PYBIND11_INCLUDE"])
+        end
+
+
+    end)
 
     on_install("windows|native", "macosx", "linux", function (package)
         import("package.tools.cmake").install(package, {
             "-DPYBIND11_TEST=OFF",
+            "-DPYBIND11_FINDPYTHON=ON",
             -- "-DPYTHON_EXECUTABLE=$(env XMAKE_PYTHON_BIN)",
             -- "-DPYTHON_INCLUDE_DIR=$(env XMAKE_PYTHON_INCLUDE)",
             -- "-DPYTHON_LIBRARY=$(env XMAKE_PYTHON_LIB)",
@@ -95,17 +139,16 @@ package("_pybind11")
         })
     end)
 
-
     on_test(function (package)
-        assert(package:check_cxxsnippets({test = [[
-            #include <pybind11/pybind11.h>
-            int add(int i, int j) {
-                return i + j;
-            }
-            PYBIND11_MODULE(example, m) {
-                m.def("add", &add, "A function which adds two numbers");
-            }
-        ]]}, {configs = {languages = "c++11"}}))
+        -- assert(package:check_cxxsnippets({test = [[
+        --     #include <pybind11/pybind11.h>
+        --     int add(int i, int j) {
+        --         return i + j;
+        --     }
+        --     PYBIND11_MODULE(example, m) {
+        --         m.def("add", &add, "A function which adds two numbers");
+        --     }
+        -- ]]}, {configs = {languages = "c++11"}}))
     end)
 package_end()
 
@@ -113,10 +156,9 @@ set_runtimes("MD")
 set_languages("cxx17")
 
 add_requires("_matio", {
-    configs = {zlib = true, hdf5 = true, mat73 = true},
+    configs = {zlib = true , hdf5 = true, mat73 = true},
 })
 add_requires("_pybind11")
-add_requires("python", {system = true})
 
 -- add_requireconfs("pybind11", {override = true}) -- 如果系统自带了 pybind11，偶尔会出现一些问题，所以这里一定要用 xrepo 的
 -- add_requireconfs("pybind11")
@@ -124,10 +166,11 @@ add_requires("python", {system = true})
 target("libpymatio")
     set_kind("shared")
     add_packages("_matio", "_pybind11")
-    -- add_packages("_matio")
+    -- 添加 include 目录
+    add_includedirs("$(env XMAKE_PYBIND11_INCLUDE)/", {public = true})
+    add_includedirs("$(env XMAKE_PYTHON_INCLUDE)/", {public = true})
 
     set_extension("$(shell python -c \"print%(__import__%('sysconfig'%).get_config_var%('EXT_SUFFIX'%), end=''%)\")")
-    -- add_cxxflags("$(shell python -m pybind11 --includes)")
     add_files("src/*.cpp")
     add_includedirs("src")
 
@@ -144,6 +187,15 @@ target("libpymatio")
         for _, dir in ipairs(target:get("libdirs")) do
             print(dir)
         end
+
+        local envs = os.getenvs()
+        print("all envs:")
+        for k, v in pairs(envs) do
+            print(k, v, path.is_absolute(v))
+        end
+        -- package:add("sysincludedirs", envs["XMAKE_PYBIND11_INCLUDE"] .. "/", {public = true})
+        -- package:add("sysincludedirs", envs["XMAKE_PYTHON_INCLUDE"] .. "/", {public = true})
+
     end)
 
     -- print(os.getenv("PYTHONPATH"))

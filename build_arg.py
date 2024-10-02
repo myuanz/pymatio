@@ -31,7 +31,10 @@ class XmakeBuildExt(build_ext):
             raise Exception(f'Unsupported platform: {platform}, allowed: {xmake_archs}')
         logging.debug(f"{curr_arch=} {platform=}")
         python_include = sysconfig.get_path('include')
-        python_lib = sysconfig.get_config_var('LIBDIR')
+        if os.name != 'nt':
+            python_lib = sysconfig.get_config_var('LIBDIR')
+        else:
+            python_lib = Path(python_include).parent.joinpath('libs').as_posix()
         python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
         python_bin = sysconfig.get_path("scripts")
         python_site_packages = sysconfig.get_path("purelib")

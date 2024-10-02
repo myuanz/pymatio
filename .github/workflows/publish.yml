@@ -1,0 +1,39 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'The version of the release'
+        required: true
+      release_notes:
+        description: 'Notes for the release'
+        required: false
+jobs:
+  build:
+    uses: ./.github/workflows/build-and-test.yml
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/provefar/pymatio
+    permissions:
+      id-token: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/download-artifact@v4
+      name: Download all workflow and publish to pypi
+      with:
+        path: dist
+        merge-multiple: true
+
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        attestations: true

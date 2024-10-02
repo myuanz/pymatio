@@ -45,5 +45,5 @@ test-command = "pytest {project}/tests"
 # linux.environment = { PATH = "$HOME/.local/bin/:$PATH", XMAKE_ROOT = "y" }
 # linux.before-build = "source ~/.xmake/profile"
 linux.container-engine = "podman"
-linux.manylinux-x86_64-image = "pymatio-base-manylinux"
-linux.musllinux-x86_64-image = "pymatio-base-musllinux"
+linux.manylinux-x86_64-image = "docker.io/myuanz/pymatio-base-manylinux:latest"
+linux.musllinux-x86_64-image = "docker.io/myuanz/pymatio-base-musllinux:latest"

@@ -91,10 +91,17 @@ pybind11::class_<matio::MatVarT>(m, "MatVarT", "Matlab variable information.")
     .def_readwrite("rank", &matio::MatVarT::rank, "Rank (Number of dimensions) of the data.")
     .def_readwrite("data_size", &matio::MatVarT::data_size, "Bytes / element for the data.")
     .def_readwrite("data_type", &matio::MatVarT::data_type, "Data type (MatioTypes.*).")
+    .def_property("class_type", 
+        [](const matio::MatVarT& self) { return static_cast<matio::MatioClasses>(self.class_type); },
+        [](matio::MatVarT& self, matio::MatioClasses value) { self.class_type = static_cast<matio_classes>(value); },
+        "Class type (MatioClasses.*)")
+
     .def_readwrite("is_complex", &matio::MatVarT::isComplex, "non-zero if the data is complex, 0 if real.")
     .def_readwrite("is_global", &matio::MatVarT::isGlobal, "non-zero if the variable is global.")
     .def_readwrite("is_logical", &matio::MatVarT::isLogical, "non-zero if the variable is logical.")
-    .def_readwrite("dims", &matio::MatVarT::dims, "Array of lengths for each dimension.")
+    .def_property_readonly("dims", [](const matio::MatVarT& var) {
+        return pybind11::array_t<size_t>(var.rank, var.dims);
+    }, "Dimensions of the variable.")
     .def_readwrite("name", &matio::MatVarT::name, "Name of the variable.")
     .def_readwrite("mem_conserve", &matio::MatVarT::mem_conserve, "1 if Memory was conserved with data.")
     .def_readwrite("internal", &matio::MatVarT::internal, "matio internal data.");

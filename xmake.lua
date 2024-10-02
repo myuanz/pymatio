@@ -86,30 +86,12 @@ package("_pybind11")
 
     add_deps("cmake")
 
-    on_load("windows", function (package)
-        if package:config("use_python_headeronly") then
-            print("windows can not use headeronly")
-            package:config("use_python_headeronly", false)
-        end
-
-        package:add("deps", "python", {configs = {
-            headeronly = false,
-        }})
-    end)
-    on_load("macosx", function (package)
-        package:add("deps", "python", {configs = {
-            headeronly = package:config("use_python_headeronly")
-        }})
-    end)
-
     on_load("linux", function (package)
         local python_headeronly = package:config("use_python_headeronly")
 
         cibuildwheel = os.getenv("CIBUILDWHEEL")
         if not cibuildwheel then
-            package:add("deps", "python", {configs = {
-                headeronly = python_headeronly,
-            }})
+            return
         else 
             -- cibuildwheel 容器
             os.exec("printenv")
@@ -124,8 +106,6 @@ package("_pybind11")
             os.exec("ls -l " .. envs["XMAKE_PYTHON_INCLUDE"])
             os.exec("ls -l " .. envs["XMAKE_PYBIND11_INCLUDE"])
         end
-
-
     end)
 
     on_install("windows|native", "macosx", "linux", function (package)
@@ -140,15 +120,15 @@ package("_pybind11")
     end)
 
     on_test(function (package)
-        -- assert(package:check_cxxsnippets({test = [[
-        --     #include <pybind11/pybind11.h>
-        --     int add(int i, int j) {
-        --         return i + j;
-        --     }
-        --     PYBIND11_MODULE(example, m) {
-        --         m.def("add", &add, "A function which adds two numbers");
-        --     }
-        -- ]]}, {configs = {languages = "c++11"}}))
+        assert(package:check_cxxsnippets({test = [[
+            #include <pybind11/pybind11.h>
+            int add(int i, int j) {
+                return i + j;
+            }
+            PYBIND11_MODULE(example, m) {
+                m.def("add", &add, "A function which adds two numbers");
+            }
+        ]]}, {configs = {languages = "c++11"}}))
     end)
 package_end()
 
@@ -169,6 +149,7 @@ target("libpymatio")
     -- 添加 include 目录
     add_includedirs("$(env XMAKE_PYBIND11_INCLUDE)/", {public = true})
     add_includedirs("$(env XMAKE_PYTHON_INCLUDE)/", {public = true})
+    add_linkdirs("$(env XMAKE_PYTHON_LIB)/", {public = true})
 
     set_extension("$(shell python -c \"print%(__import__%('sysconfig'%).get_config_var%('EXT_SUFFIX'%), end=''%)\")")
     add_files("src/*.cpp")

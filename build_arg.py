@@ -6,6 +6,7 @@ import sysconfig
 from pathlib import Path
 import logging
 
+from pybind11.commands import get_include as get_pybind11_include
 from setuptools import Extension
 from setuptools.command.build_ext import build_ext
 
@@ -34,9 +35,14 @@ class XmakeBuildExt(build_ext):
         python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
         python_bin = sysconfig.get_path("scripts")
         python_site_packages = sysconfig.get_path("purelib")
+        pybind11_include = get_pybind11_include()
+        
 
-        print(f'{python_include=} {python_lib=} {python_version=} {python_bin=} {python_site_packages=}')
-        print(list(Path(python_bin).parent.glob("*")))
+        # print(f'{python_include=} {python_lib=} {python_version=} {python_bin=} {python_site_packages=}')
+        # print(list(Path(python_bin).parent.glob("*")))
+        # print(Path(python_bin).is_symlink())
+        # os.system(f"ls -l {python_bin}")
+        # exit(1)
 
         # 检查xmake是否存在
         if not shutil.which("xmake"):
@@ -53,10 +59,12 @@ class XmakeBuildExt(build_ext):
             "XMAKE_PYTHON_SITE_PACKAGES": python_site_packages or '',
             "XMAKE_PYTHON_BIN": python_bin or '',
             "PATH": f"{python_bin}{sep}{python_site_packages}{sep}{os.environ['PATH']}",
+            "XMAKE_PYBIND11_INCLUDE": pybind11_include,
         }
-        for k, v in env.items():
-            print(f"{k}={v} {type(v)}")
-
+        subprocess.run(["env"], env=env)
+        if os.environ.get("SLEEP"):
+            print("sleep 100000")
+            os.system("sleep 100000")
 
         # subprocess.run(["xmake", "config", "-c", "-a", curr_arch, "-v", "-D", '-y', f"--includedirs={python_include}", f"--linkdirs={python_lib}"])
         subprocess.run(["xmake", "config", "-c", "-a", curr_arch, "-v", "-D", '-y'], env=env)

@@ -158,6 +158,7 @@ target("libpymatio")
     set_extension("$(shell python -c \"print%(__import__%('sysconfig'%).get_config_var%('EXT_SUFFIX'%), end=''%)\")")
     add_files("src/*.cpp")
     add_includedirs("src")
+    add_includedirs("/home/myuan/.cache/pypoetry/virtualenvs/pymatio-CSG_Utru-py3.12/lib/python3.12/site-packages/pybind11/include", "/usr/include/python3.12", {public = true})
 
     -- Windows 下，生成的文件名是 libpymatio，但 Linux 下会是 liblibpymatio，所以这里手动设置前缀和基本名称
     set_prefixname("")

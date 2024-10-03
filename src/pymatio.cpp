@@ -334,8 +334,8 @@ PYBIND11_MODULE(libpymatio, m) {
 //     .def(pybind11::init())
 //     .def_property("real", &matio::MatComplexSplitT::get_real, &matio::MatComplexSplitT::set_real, "Pointer to the real part.")
 //     .def_property("imag", &matio::MatComplexSplitT::get_imag, &matio::MatComplexSplitT::set_imag, "Pointer to the imaginary part.");
-// m
-//     .def("get_library_version", &matio::get_library_version, pybind11::return_value_policy::move, "Get the version of the library.")
+m
+    .def("get_library_version", &matio::get_library_version, pybind11::return_value_policy::move, "Get the version of the library.");
 //     .def("log_init", &matio::log_init, "Initializes the logging system.")
 //     .def("set_debug", &matio::set_debug, "Set debug parameter.")
 //     .def("critical", &matio::critical, "Logs a Critical message and returns to the user.")

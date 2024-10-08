@@ -18,5 +18,5 @@ except Exception as e:
     traceback.print_exc()
     raise
 
-from libpymatio import get_library_version
+# from libpymatio import get_library_version
 from libpymatio import *

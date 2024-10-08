@@ -21,6 +21,7 @@ pybind11 = "^2"
 cibuildwheel = "^2.16.2"
 pytest = "^7.4.3"
 ipykernel = "^6.29.5"
+tyro = "^0.8.11"
 
 [[tool.poetry.source]]
 name = "tsinghua"

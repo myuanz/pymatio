@@ -228,58 +228,50 @@ py::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
 
     // Determine the NumPy dtype and format descriptor
     py::dtype np_dtype;
-    std::string format_descriptor;
     size_t element_size;
 
     switch(matvar->data_type) {
         case MAT_T_DOUBLE:
             np_dtype = py::dtype::of<double>();
-            format_descriptor = py::format_descriptor<double>::format();
             element_size = sizeof(double);
             break;
         case MAT_T_SINGLE:
             np_dtype = py::dtype::of<float>();
-            format_descriptor = py::format_descriptor<float>::format();
             element_size = sizeof(float);
             break;
         case MAT_T_INT8:
             np_dtype = py::dtype::of<int8_t>();
-            format_descriptor = py::format_descriptor<int8_t>::format();
             element_size = sizeof(int8_t);
             break;
         case MAT_T_UINT8:
             np_dtype = py::dtype::of<uint8_t>();
-            format_descriptor = py::format_descriptor<uint8_t>::format();
             element_size = sizeof(uint8_t);
+            if (matvar->isLogical) {
+                np_dtype = py::dtype::of<bool>();
+            }
             break;
         case MAT_T_INT16:
             np_dtype = py::dtype::of<int16_t>();
-            format_descriptor = py::format_descriptor<int16_t>::format();
             element_size = sizeof(int16_t);
             break;
         case MAT_T_UINT16:
             np_dtype = py::dtype::of<uint16_t>();
-            format_descriptor = py::format_descriptor<uint16_t>::format();
             element_size = sizeof(uint16_t);
             break;
         case MAT_T_INT32:
             np_dtype = py::dtype::of<int32_t>();
-            format_descriptor = py::format_descriptor<int32_t>::format();
             element_size = sizeof(int32_t);
             break;
         case MAT_T_UINT32:
             np_dtype = py::dtype::of<uint32_t>();
-            format_descriptor = py::format_descriptor<uint32_t>::format();
             element_size = sizeof(uint32_t);
             break;
         case MAT_T_INT64:
             np_dtype = py::dtype::of<int64_t>();
-            format_descriptor = py::format_descriptor<int64_t>::format();
             element_size = sizeof(int64_t);
             break;
         case MAT_T_UINT64:
             np_dtype = py::dtype::of<uint64_t>();
-            format_descriptor = py::format_descriptor<uint64_t>::format();
             element_size = sizeof(uint64_t);
             break;
         default:
@@ -300,7 +292,11 @@ py::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
                 case MAT_T_UINT16:
                 case MAT_T_UINT32:
                 case MAT_T_UINT64:
-                    return py::cast(static_cast<uint64_t*>(matvar->data)[0]);
+                    if (matvar->isLogical) {
+                        return py::cast(static_cast<uint64_t*>(matvar->data)[0] != 0);
+                    } else {
+                        return py::cast(static_cast<uint64_t*>(matvar->data)[0]);
+                    }
                 default:
                     return py::cast(matvar->data);
             }
@@ -312,33 +308,9 @@ py::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
         shape[i] = static_cast<ssize_t>(matvar->dims[i]);
     }
     std::vector<ssize_t> strides = py::detail::f_strides(shape, element_size);
-    // for (auto stride : strides) {
-    //     printf("stride: %zd\n", stride);
-    // }
 
-    // ssize_t stride = element_size;
-    // for(int i = matvar->rank - 1; i >= 0; --i) {
-    //     shape[i] = static_cast<ssize_t>(matvar->dims[i]);
-    //     strides[i] = stride;
-    //     stride *= shape[i];
-    //     printf("meet numeric type, rank: %zu, dims[%d]: %zu, stride: %zd\n", matvar->rank, i, matvar->dims[i], strides[i]);
-    // }
-            
-    // 创建Fortran顺序的NumPy数组
-    // auto arr = py::array(py::buffer_info(
-    //     matvar->data,                           // 数据指针
-    //     element_size,                           // 每个元素的大小
-    //     format_descriptor,                      // 数据类型描述符
-    //     matvar->rank,                           // 维度数
-    //     shape,                                  // 形状
-    //     strides                                 // 步长
-    // ));
     auto arr = py::array(np_dtype, shape, strides, matvar->data);
-    // show arr.attr("flags")
     // printf("arr.attr(\"flags\"): %s\n", arr.attr("flags").attr("__str__")().cast<std::string>().c_str());
-    // arr.attr("flags")["C_CONTIGUOUS"] = false;
-    // arr.attr("flags")["F_CONTIGUOUS"] = true;
-    // arr.attr("flags")["c_contiguous"] = false;
 
     return arr;
 }

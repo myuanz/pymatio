@@ -150,7 +150,7 @@ std::string utf8_to_gbk(const std::string& utf8_str) {
     }
 }
 // Helper function to convert matvar_t to Python object
-py::object matvar_to_pyobject(matvar_t* matvar, int indent);
+py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells);
 
 // Helper function to handle numeric data types
 // py::object handle_numeric(matvar_t* matvar) {
@@ -281,24 +281,32 @@ py::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
         if (num_elements == 1) {
             switch(matvar->data_type) {
                 case MAT_T_DOUBLE:
-                case MAT_T_SINGLE:
                     return py::cast(static_cast<double*>(matvar->data)[0]);
+                case MAT_T_SINGLE:
+                    return py::cast(static_cast<float*>(matvar->data)[0]);
                 case MAT_T_INT8:
+                    return py::cast(static_cast<int8_t*>(matvar->data)[0]);
                 case MAT_T_INT16:
+                    return py::cast(static_cast<int16_t*>(matvar->data)[0]);
                 case MAT_T_INT32:
+                    return py::cast(static_cast<int32_t*>(matvar->data)[0]);
                 case MAT_T_INT64:
                     return py::cast(static_cast<int64_t*>(matvar->data)[0]);
                 case MAT_T_UINT8:
-                case MAT_T_UINT16:
-                case MAT_T_UINT32:
-                case MAT_T_UINT64:
                     if (matvar->isLogical) {
-                        return py::cast(static_cast<uint64_t*>(matvar->data)[0] != 0);
+                        return py::cast(static_cast<uint8_t*>(matvar->data)[0] != 0);
                     } else {
-                        return py::cast(static_cast<uint64_t*>(matvar->data)[0]);
+                        return py::cast(static_cast<uint8_t*>(matvar->data)[0]);
                     }
+
+                case MAT_T_UINT16:
+                    return py::cast(static_cast<uint16_t*>(matvar->data)[0]);
+                case MAT_T_UINT32:
+                    return py::cast(static_cast<uint32_t*>(matvar->data)[0]);
+                case MAT_T_UINT64:
+                    return py::cast(static_cast<uint64_t*>(matvar->data)[0]);
                 default:
-                    return py::cast(matvar->data);
+                    throw std::runtime_error("Unsupported MAT data type: " + std::to_string(matvar->data_type));
             }
         }
     }
@@ -313,6 +321,38 @@ py::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
     // printf("arr.attr(\"flags\"): %s\n", arr.attr("flags").attr("__str__")().cast<std::string>().c_str());
 
     return arr;
+}
+
+py::array matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cells) {
+    if (!matvar || matvar->class_type != MAT_C_CELL) {
+        throw std::runtime_error("Invalid matvar or not a cell array");
+    }
+
+    // 获取维度信息
+    std::vector<ssize_t> shape(matvar->dims, matvar->dims + matvar->rank);
+
+    // 创建一个 NumPy 数组，使用 object 类型
+    py::array cell_array = py::array(py::dtype("O"), shape);
+    py::buffer_info buf = cell_array.request();
+    py::object* ptr = static_cast<py::object*>(buf.ptr);
+
+    // 计算总元素数
+    size_t total_elements = 1;
+    for (int i = 0; i < matvar->rank; ++i) {
+        total_elements *= matvar->dims[i];
+    }
+
+    // 填充数组
+    matvar_t** cells = static_cast<matvar_t**>(matvar->data);
+    for (size_t i = 0; i < total_elements; ++i) {
+        if (cells[i]) {
+            ptr[i] = matvar_to_pyobject(cells[i], indent + 1, simplify_cells);
+        } else {
+            ptr[i] = py::none();
+        }
+    }
+
+    return cell_array;
 }
 
 // Function to convert matvar_t to Python object
@@ -357,6 +397,8 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
             return struct_dict;
         }
         case MAT_C_CELL: {
+            return matvar_to_numpy_cell(matvar, indent, simplify_cells);
+
             py::list cell_list;
             matvar_t** cells = static_cast<matvar_t**>(matvar->data);
             printf("%*s matvar->dims[0]: %zu, matvar->dims[1]: %zu\n", indent, "", matvar->dims[0], matvar->dims[1]);

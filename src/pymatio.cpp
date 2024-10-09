@@ -125,28 +125,31 @@
 
 namespace py = pybind11;
 
-std::string gbk_to_utf8(const std::string& input) {
+std::string string_to_utf8(int string_type, const std::string& input) {
+    // match MAT_T_UTF8 MAT_T_UTF16 MAT_T_UTF32
     try {
-        static std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_conv;
-        std::wstring_convert<std::codecvt_utf16<wchar_t, 0x10ffff, std::little_endian>> gbk_conv;
-        std::wstring utf16_str = gbk_conv.from_bytes(input);
-        return utf8_conv.to_bytes(utf16_str);
+        std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_conv;
+        std::wstring_convert<std::codecvt_utf16<wchar_t, 0x10ffff, std::little_endian>> utf16_conv;
+        std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> utf32_conv;
+
+        switch (string_type) {
+            case MAT_T_UTF8:
+        return input;
+            case MAT_T_UTF16: {
+                std::wstring utf16_str = utf16_conv.from_bytes(input);
+                return utf8_conv.to_bytes(utf16_str);
+            }
+            case MAT_T_UTF32: {
+                std::u32string utf32_str(reinterpret_cast<const char32_t*>(input.data()), input.length() / sizeof(char32_t));
+                return utf32_conv.to_bytes(utf32_str);
+            }
+            default:
+                throw std::runtime_error("Unsupported string type: " + std::to_string(string_type));
+        }
     } catch (const std::exception&) {
-        printf("gbk_to_utf8 error: %s\n", input.c_str());
+        printf("string_to_utf8 error: %s\n", input.c_str());
         // 如果转换失败，返回原始字符串
         return input;
-    }
-}
-
-std::string utf8_to_gbk(const std::string& utf8_str) {
-    try {
-        static std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_conv;
-        std::wstring_convert<std::codecvt_utf16<wchar_t, 0x10ffff, std::little_endian>> gbk_conv;
-        std::wstring utf16_str = utf8_conv.from_bytes(utf8_str);
-        return gbk_conv.to_bytes(utf16_str);
-    } catch (const std::exception&) {
-        // 如果转换失败，返回原始字符串
-        return utf8_str;
     }
 }
 // Helper function to convert matvar_t to Python object
@@ -418,8 +421,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
                 return py::str("");
             }
             std::string raw_str(static_cast<char*>(matvar->data), matvar->nbytes);
-            // std::string utf8_str = gbk_to_utf8(raw_str);
-            std::string utf8_str = raw_str;
+            std::string utf8_str = string_to_utf8(matvar->data_type, raw_str);
 
             // Trim trailing spaces
             size_t endpos = utf8_str.find_last_not_of(" ");
@@ -429,11 +431,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
             return py::str(utf8_str);
         }
         case MAT_C_OPAQUE: {
-            printf("%*s MAT_C_OPAQUE matvar->data: %s\n", indent, "", static_cast<char*>(matvar->data));
-            if (!matvar->data) {
-                return py::str("");
-            }
-            return py::str(static_cast<char*>(matvar->data));
+            throw std::runtime_error("Unsupported MAT class: " + std::to_string(matvar->class_type));
         }
         default:
             throw std::runtime_error("Unsupported MAT class: " + std::to_string(matvar->class_type));

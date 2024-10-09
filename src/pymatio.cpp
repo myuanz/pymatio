@@ -306,9 +306,12 @@ py::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
         }
     }
     // Prepare dimensions and strides
-    std::vector<ssize_t> shape(matvar->rank);
+    std::vector<ssize_t> shape = {};
     for (int i = 0; i < matvar->rank; ++i) {
-        shape[i] = static_cast<ssize_t>(matvar->dims[i]);
+        if (matvar->dims[i] == 1 && simplify_cells) {
+            continue;
+        }
+        shape.push_back(static_cast<ssize_t>(matvar->dims[i]));
     }
     std::vector<ssize_t> strides = py::detail::f_strides(shape, element_size);
 
@@ -318,7 +321,7 @@ py::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
     return arr;
 }
 
-py::array matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cells) {
+py::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cells) {
     if (!matvar || matvar->class_type != MAT_C_CELL) {
         throw std::runtime_error("Invalid matvar or not a cell array");
     }
@@ -326,27 +329,51 @@ py::array matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cells
     // 获取维度信息
     std::vector<ssize_t> shape(matvar->dims, matvar->dims + matvar->rank);
 
-    // 创建一个 NumPy 数组，使用 object 类型
-    py::array cell_array = py::array(py::dtype("O"), shape);
-    py::buffer_info buf = cell_array.request();
-    py::object* ptr = static_cast<py::object*>(buf.ptr);
+    // 检查是否可以简化为一维数组
+    bool can_simplify = simplify_cells && 
+                        (matvar->rank == 2) && 
+                        (shape[0] == 1 || shape[1] == 1);
+
+    // 如果可以简化，调整 shape
+    if (can_simplify) {
+        shape = {static_cast<ssize_t>(shape[0] * shape[1])};
+    }
 
     // 计算总元素数
     size_t total_elements = 1;
-    for (int i = 0; i < matvar->rank; ++i) {
-        total_elements *= matvar->dims[i];
+    for (const auto& dim : shape) {
+        total_elements *= dim;
+    }
+    printf("%*s cell total_elements: %zu\n", indent, "", total_elements);
+    printf("%*s shape: %zu, rank: %zu\n", indent, "", shape.size(), matvar->rank);
+    for (const auto& dim : shape) {
+        printf("%*s  shape dim: %zu\n", indent, "", dim);
+    }
+    // 创建一个 object 类型的 NumPy 数组
+    std::vector<ssize_t> strides = py::detail::f_strides(shape, py::dtype("O").itemsize());
+    // std::vector<ssize_t> strides = py::detail::c_strides(shape, py::dtype("O").itemsize());
+    py::array cell_array = py::array(py::dtype("O"), shape, strides);
+
+    printf("%*s stride elem size: %zu %zu\n", indent, "", py::dtype("O").itemsize(), sizeof(matvar_t*));
+    for(size_t i = 0; i < shape.size(); ++i) {
+        printf("%*s strides: %zu\n", indent, "", cell_array.strides()[i]);
     }
 
-    // 填充数组
-    matvar_t** cells = static_cast<matvar_t**>(matvar->data);
+    matvar_t** cells = Mat_VarGetCellsLinear(matvar, 0, 1, total_elements);
+    py::array cell_array_reshaped = cell_array.attr("ravel")("F");
+
     for (size_t i = 0; i < total_elements; ++i) {
-        if (cells[i]) {
-            ptr[i] = matvar_to_pyobject(cells[i], indent + 1, simplify_cells);
-        } else {
-            ptr[i] = py::none();
-        }
-    }
+        py::object obj;
+        printf("%*s set item %zu\n", indent, "", i);
 
+        if (cells[i]) {
+            obj = matvar_to_pyobject(cells[i], indent + 1, simplify_cells);
+        } else {
+            // obj = py::none();
+            // the default value of cell is empty array, so set it to empty is not necessary
+        }
+        cell_array_reshaped.attr("__setitem__")(i, obj);
+    }
     return cell_array;
 }
 
@@ -356,7 +383,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
         return py::none();
     }
 
-    printf("%*s matvar->class_type, data_type: %d, %d. %d\n", indent, "", matvar->class_type, matvar->data_type, matvar->isLogical);
+    printf("%*s matvar %s\n", indent, "", combine_var_type(matvar).c_str());
 
     switch(matvar->class_type) {
         case MAT_C_DOUBLE:

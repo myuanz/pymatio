@@ -3,6 +3,9 @@ from types import NoneType
 import pymatio as pm
 import mat73
 import numpy as np
+import os
+# %%
+os.system("clear")
 
 def compare_maybe_array(a, b):
     if {type(a), type(b)} == {np.ndarray, NoneType}:
@@ -49,6 +52,10 @@ def compare_mats(mat1, mat2, path=""):
     elif not isinstance(mat1, type(mat2)):
         if any(type(m) in (float, int, bool, np.bool, np.float64, np.uint8) for m in (mat1, mat2)):
             return mat1 == mat2
+        elif mat1 is None and isinstance(mat2, np.ndarray) and mat2.size == 0:
+            return True
+        elif mat2 is None and isinstance(mat1, np.ndarray) and mat1.size == 0:
+            return True
         else:
             print(f"类型不一致: {path[:-1]}, `{mat1}` <-> `{mat2}` | {type(mat1)} - {type(mat2)}")
     elif not compare_maybe_array(mat1, mat2):
@@ -56,34 +63,31 @@ def compare_mats(mat1, mat2, path=""):
         
         
 p = '/home/myuan/C052-inj/C052-217-P0.ntp'
-p = '/mnt/90-connectome/test_data.mat'
+# p = '/mnt/90-connectome/test_data.mat'
 # p = '/mnt/90-connectome/test_data_73.mat'
 mat_from_pm = pm.loadmat(p, simplify_cells=True)
+
 try:
     mat_from_mat73 = mat73.loadmat(p)
+    # mat_from_mat73 = hdf5storage.loadmat(p, simplify_cells=True, chars_as_strings=True)
+
 except Exception as e:
     import scipy.io as scio
     mat_from_mat73 = (scio.loadmat(p, simplify_cells=True, chars_as_strings=True))
 
 compare_mats(mat_from_pm, mat_from_mat73)
-# print(mat_from_pm)
+# print(mat_from_pm['testStruct']['cellArrayMul'])
+# print(mat_from_mat73['testStruct']['cellArrayMul'])
 # print(mat_from_pm, mat_from_mat73, sep='\n\n')
 # %%
-def hex_str(s: bytes):
-    return ", ".join(map(hex, s))
-
-a = '敮瑳摥'
-b = 'nested'
-hex_str(a.encode('utf8')), hex_str(b.encode('utf8'))
-
-
 # %%
 def show_arr_and_flags(arr):
-    print(arr)
+    # print(arr)
     print(arr.flags)
     print(arr.strides)
     print(arr.shape)
     print('-'*40)
 
-# show_arr_and_flags(mat_from_pm['testStruct']['float2DArray'])
-# show_arr_and_flags(mat_from_mat73['testStruct']['float2DArray'])
+# show_arr_and_flags(mat_from_pm['testStruct']['cellArrayMul'])
+# show_arr_and_flags(mat_from_mat73['testStruct']['cellArrayMul'])
+# %%

@@ -215,7 +215,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent);
 //     return arr;
 // }
 
-py::object handle_numeric(matvar_t* matvar) {
+py::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
     if(!matvar->data) {
         return py::none();
     }
@@ -285,16 +285,36 @@ py::object handle_numeric(matvar_t* matvar) {
         default:
             throw std::runtime_error("Unsupported MAT data type: " + std::to_string(matvar->data_type));
     }
-    
+    if (simplify_cells) {
+        if (num_elements == 1) {
+            switch(matvar->data_type) {
+                case MAT_T_DOUBLE:
+                case MAT_T_SINGLE:
+                    return py::cast(static_cast<double*>(matvar->data)[0]);
+                case MAT_T_INT8:
+                case MAT_T_INT16:
+                case MAT_T_INT32:
+                case MAT_T_INT64:
+                    return py::cast(static_cast<int64_t*>(matvar->data)[0]);
+                case MAT_T_UINT8:
+                case MAT_T_UINT16:
+                case MAT_T_UINT32:
+                case MAT_T_UINT64:
+                    return py::cast(static_cast<uint64_t*>(matvar->data)[0]);
+                default:
+                    return py::cast(matvar->data);
+            }
+        }
+    }
     // Prepare dimensions and strides
     std::vector<ssize_t> shape(matvar->rank);
     for (int i = 0; i < matvar->rank; ++i) {
         shape[i] = static_cast<ssize_t>(matvar->dims[i]);
     }
     std::vector<ssize_t> strides = py::detail::f_strides(shape, element_size);
-    for (auto stride : strides) {
-        printf("stride: %zd\n", stride);
-    }
+    // for (auto stride : strides) {
+    //     printf("stride: %zd\n", stride);
+    // }
 
     // ssize_t stride = element_size;
     // for(int i = matvar->rank - 1; i >= 0; --i) {
@@ -315,7 +335,7 @@ py::object handle_numeric(matvar_t* matvar) {
     // ));
     auto arr = py::array(np_dtype, shape, strides, matvar->data);
     // show arr.attr("flags")
-    printf("arr.attr(\"flags\"): %s\n", arr.attr("flags").attr("__str__")().cast<std::string>().c_str());
+    // printf("arr.attr(\"flags\"): %s\n", arr.attr("flags").attr("__str__")().cast<std::string>().c_str());
     // arr.attr("flags")["C_CONTIGUOUS"] = false;
     // arr.attr("flags")["F_CONTIGUOUS"] = true;
     // arr.attr("flags")["c_contiguous"] = false;
@@ -324,12 +344,12 @@ py::object handle_numeric(matvar_t* matvar) {
 }
 
 // Function to convert matvar_t to Python object
-py::object matvar_to_pyobject(matvar_t* matvar, int indent) {
+py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells = false) {
     if(matvar == nullptr) {
         return py::none();
     }
 
-    printf("%*s matvar->class_type: %d\n", indent, "", matvar->class_type);
+    printf("%*s matvar->class_type, data_type: %d, %d. %d\n", indent, "", matvar->class_type, matvar->data_type, matvar->isLogical);
 
     switch(matvar->class_type) {
         case MAT_C_DOUBLE:
@@ -342,7 +362,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent) {
         case MAT_C_UINT32:
         case MAT_C_INT64:
         case MAT_C_UINT64:
-            return handle_numeric(matvar);
+            return handle_numeric(matvar, simplify_cells);
         case MAT_C_EMPTY:
             return py::none();
         case MAT_C_STRUCT: {
@@ -357,7 +377,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent) {
                 printf("%*s field_name: %s, field_var: %p\n", indent, "", field_name, field_var);
 
                 if(field_var) {
-                    struct_dict[field_name] = matvar_to_pyobject(field_var, indent + 1);
+                    struct_dict[field_name] = matvar_to_pyobject(field_var, indent + 1, simplify_cells);
                 } else {
                     struct_dict[field_name] = py::none();
                 }
@@ -370,7 +390,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent) {
             printf("%*s matvar->dims[0]: %zu, matvar->dims[1]: %zu\n", indent, "", matvar->dims[0], matvar->dims[1]);
             for(size_t i = 0; i < matvar->dims[0] * matvar->dims[1]; ++i) {
                 if(cells[i]) {
-                    cell_list.append(matvar_to_pyobject(cells[i], indent + 1));
+                    cell_list.append(matvar_to_pyobject(cells[i], indent + 1, simplify_cells));
                 } else {
                     cell_list.append(py::none());
                 }
@@ -384,7 +404,8 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent) {
                 return py::str("");
             }
             std::string raw_str(static_cast<char*>(matvar->data), matvar->nbytes);
-            std::string utf8_str = gbk_to_utf8(raw_str);
+            // std::string utf8_str = gbk_to_utf8(raw_str);
+            std::string utf8_str = raw_str;
 
             // Trim trailing spaces
             size_t endpos = utf8_str.find_last_not_of(" ");
@@ -406,7 +427,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent) {
 }
 
 // Function to load MAT file
-py::dict loadmat(const std::string& filename) {
+py::dict loadmat(const std::string& filename, bool simplify_cells = false) {
     mat_t* matfp = Mat_Open(filename.c_str(), MAT_ACC_RDONLY);
     if(matfp == nullptr) {
         throw std::runtime_error("Failed to open MAT file: " + filename);
@@ -418,7 +439,7 @@ py::dict loadmat(const std::string& filename) {
     while((matvar = Mat_VarReadNext(matfp)) != nullptr) {
         try {
             printf("in matvar->name: %s\n", matvar->name);
-            mat_dict[matvar->name] = matvar_to_pyobject(matvar, 0);
+            mat_dict[matvar->name] = matvar_to_pyobject(matvar, 0, simplify_cells);
             printf("out matvar->name: %s\n", matvar->name);
         } catch(const std::exception& e) {
             printf("Error processing variable '%s': %s\n", matvar->name, e.what());
@@ -644,7 +665,9 @@ pybind11::tuple get_library_version() {
 PYBIND11_MODULE(libpymatio, m) {
     
     m.def("loadmat", &loadmat, "Load a MAT file",
-          py::arg("filename"));
+          py::arg("filename"),
+          py::arg("simplify_cells") = false
+    );
 
     m.def("savemat", &savemat, "Save variables to a MAT file",
           py::arg("filename"),

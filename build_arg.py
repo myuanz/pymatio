@@ -71,8 +71,16 @@ class XmakeBuildExt(build_ext):
             os.system("sleep 100000")
 
         # subprocess.run(["xmake", "config", "-c", "-a", curr_arch, "-v", "-D", '-y', f"--includedirs={python_include}", f"--linkdirs={python_lib}"])
-        subprocess.run(["xmake", "config", "-c", "-a", curr_arch, "-v", "-D", '-y'], env=env)
-        subprocess.run(["xmake", "build", '-y', '-v', '-D'], env=env)
+        config_cmds = ["xmake", "config", "-c", "-a", curr_arch, "-v", "-D", '-y']
+        if os.getenv("XMAKE_DEBUG"):
+            print("debug mode")
+            config_cmds.extend(["-m", "debug"])
+        if not os.getenv("XMAKE_NO_RUN_CONFIG"):
+            subprocess.run(config_cmds, env=env)
+
+        p = subprocess.run(["xmake", "build", '-y', '-v', '-D'], env=env)
+        if p.returncode != 0:
+            raise Exception(f"xmake build failed: {p.returncode}")
 
 
     def copy_output_file(self):

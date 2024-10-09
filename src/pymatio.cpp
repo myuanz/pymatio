@@ -163,68 +163,52 @@ std::string string_to_utf8(int string_type, const std::string& input) {
 // Helper function to convert matvar_t to Python object
 py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells);
 
-// Helper function to handle numeric data types
-// py::object handle_numeric(matvar_t* matvar) {
-//     if(!matvar->data) {
-//         return py::none();
-//     }
-
-//     // Calculate the total number of elements
-//     size_t num_elements = 1;
-//     for(int i = 0; i < matvar->rank; ++i) {
-//         num_elements *= matvar->dims[i];
-//     }
-
-//     // Determine the NumPy dtype and class_type
-//     py::dtype np_dtype;
-//     switch(matvar->data_type) {
-//         case MAT_T_DOUBLE:
-//             np_dtype = py::dtype::of<double>();
-//             break;
-//         case MAT_T_SINGLE:
-//             np_dtype = py::dtype::of<float>();
-//             break;
-//         case MAT_T_INT8:
-//             np_dtype = py::dtype::of<int8_t>();
-//             break;
-//         case MAT_T_UINT8:
-//             np_dtype = py::dtype::of<uint8_t>();
-//             break;
-//         case MAT_T_INT16:
-//             np_dtype = py::dtype::of<int16_t>();
-//             break;
-//         case MAT_T_UINT16:
-//             np_dtype = py::dtype::of<uint16_t>();
-//             break;
-//         case MAT_T_INT32:
-//             np_dtype = py::dtype::of<int32_t>();
-//             break;
-//         case MAT_T_UINT32:
-//             np_dtype = py::dtype::of<uint32_t>();
-//             break;
-//         case MAT_T_INT64:
-//             np_dtype = py::dtype::of<int64_t>();
-//             break;
-//         case MAT_T_UINT64:
-//             np_dtype = py::dtype::of<uint64_t>();
-//             break;
-//         default:
-//             throw std::runtime_error("Unsupported MAT data type." + std::to_string(matvar->data_type));
-//     }
-
-//     // Prepare dimensions
-//     std::vector<ssize_t> dims(matvar->rank);
-//     for(int i = 0; i < matvar->rank; ++i) {
-//         dims[i] = static_cast<ssize_t>(matvar->dims[i]);
-//         printf("meet numeric type, rank: %zu, dims[%d]: %zu\n", matvar->rank, i, matvar->dims[i]);
-
-//     }
-            
-//     // 创建Fortran顺序的NumPy数组
-//     py::array arr = py::array(np_dtype, dims, matvar->data);
-    
-//     return arr;
-// }
+std::string combine_var_type(matvar_t* matvar) {
+    const char *data_type_desc[25] = {"Unknown",
+                                        "8-bit, signed integer",
+                                        "8-bit, unsigned integer",
+                                        "16-bit, signed integer",
+                                        "16-bit, unsigned integer",
+                                        "32-bit, signed integer",
+                                        "32-bit, unsigned integer",
+                                        "IEEE 754 single-precision",
+                                        "RESERVED",
+                                        "IEEE 754 double-precision",
+                                        "RESERVED",
+                                        "RESERVED",
+                                        "64-bit, signed integer",
+                                        "64-bit, unsigned integer",
+                                        "Matlab Array",
+                                        "Compressed Data",
+                                        "Unicode UTF-8 Encoded Character Data",
+                                        "Unicode UTF-16 Encoded Character Data",
+                                        "Unicode UTF-32 Encoded Character Data",
+                                        "RESERVED",
+                                        "String",
+                                        "Cell Array",
+                                        "Structure",
+                                        "Array",
+                                        "Function"};
+    const char *class_type_desc[18] = {"Undefined",
+                                        "Cell Array",
+                                        "Structure",
+                                        "Object",
+                                        "Character Array",
+                                        "Sparse Array",
+                                        "Double Precision Array",
+                                        "Single Precision Array",
+                                        "8-bit, signed integer array",
+                                        "8-bit, unsigned integer array",
+                                        "16-bit, signed integer array",
+                                        "16-bit, unsigned integer array",
+                                        "32-bit, signed integer array",
+                                        "32-bit, unsigned integer array",
+                                        "64-bit, signed integer array",
+                                        "64-bit, unsigned integer array",
+                                        "Function",
+                                        "Opaque"};
+    return "class type: " + std::string(class_type_desc[matvar->class_type]) + " | data type: " + std::string(data_type_desc[matvar->data_type]);
+}
 
 py::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
     if(!matvar->data) {

@@ -1,6 +1,113 @@
 //
 // Created by Administrator on 2023/11/1.
 //
+// #include <pybind11/pybind11.h>
+// #include <pybind11/numpy.h>
+// #include <pybind11/stl.h>
+// #include <matio.h>
+// #include <string>
+// #include <vector>
+// #include <map>
+// #include <codecvt>
+// #include <locale>
+// #include "matio.h"
+// #include "libmatio.h"
+
+
+// namespace py = pybind11;
+
+
+// std::string gbk_to_utf8(const std::string& input) {
+//     try {
+//         static std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_conv;
+//         std::wstring_convert<std::codecvt_utf16<wchar_t, 0x10ffff, std::little_endian>> gbk_conv;
+//         std::wstring utf16_str = gbk_conv.from_bytes(input);
+//         return utf8_conv.to_bytes(utf16_str);
+//     } catch (const std::exception&) {
+//         printf("gbk_to_utf8 error: %s\n", input.c_str());
+//         // 如果转换失败，返回原始字符串
+//         return input;
+//     }
+// }
+
+// std::string utf8_to_gbk(const std::string& utf8_str) {
+//     try {
+//         static std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_conv;
+//         std::wstring_convert<std::codecvt_utf16<wchar_t, 0x10ffff, std::little_endian>> gbk_conv;
+//         std::wstring utf16_str = utf8_conv.from_bytes(utf8_str);
+//         return gbk_conv.to_bytes(utf16_str);
+//     } catch (const std::exception&) {
+//         // 如果转换失败，返回原始字符串
+//         return utf8_str;
+//     }
+// }
+
+// py::object read_mat_var(matvar_t* matvar) {
+//     if (matvar == nullptr) {
+//         return py::none();
+//     }
+
+//     switch (matvar->class_type) {
+//         case MAT_C_DOUBLE:
+//         case MAT_C_SINGLE:
+//         case MAT_C_INT8:
+//         case MAT_C_UINT8:
+//         case MAT_C_INT16:
+//         case MAT_C_UINT16:
+//         case MAT_C_INT32:
+//         case MAT_C_UINT32:
+//         case MAT_C_INT64:
+//         case MAT_C_UINT64: {
+//             std::vector<ssize_t> dims(matvar->dims, matvar->dims + matvar->rank);
+//             py::array_t<double> arr(dims);
+//             memcpy(arr.mutable_data(), matvar->data, matvar->nbytes);
+//             return std::move(arr);
+//         }
+//         case MAT_C_CHAR: {
+//             std::string raw_str(static_cast<char*>(matvar->data), matvar->nbytes);
+//             std::string utf8_str = gbk_to_utf8(raw_str);
+//             return py::str(utf8_str);
+//         }
+//         case MAT_C_STRUCT: {
+//             py::dict result;
+//             size_t nfields = Mat_VarGetNumberOfFields(matvar);
+//             char* const* fieldnames = Mat_VarGetStructFieldnames(matvar);
+//             for (size_t i = 0; i < nfields; ++i) {
+//                 matvar_t* field = Mat_VarGetStructFieldByName(matvar, fieldnames[i], 0);
+//                 result[py::str((fieldnames[i]))] = read_mat_var(field);
+//             }
+//             return std::move(result);
+//         }
+//         case MAT_C_CELL: {
+//             py::list result;
+//             for (size_t i = 0; i < matvar->nbytes / sizeof(matvar_t*); ++i) {
+//                 matvar_t* cell = Mat_VarGetCell(matvar, i);
+//                 result.append(read_mat_var(cell));
+//             }
+//             return std::move(result);
+//         }
+//         default:
+//             return py::none();
+//     }
+// }
+
+// py::dict loadmat(const std::string& filename) {
+//     mat_t* mat = Mat_Open(filename.c_str(), MAT_ACC_RDONLY);
+//     if (mat == nullptr) {
+//         throw std::runtime_error("Failed to open MAT file");
+//     }
+
+//     py::dict result;
+//     matvar_t* matvar;
+//     while ((matvar = Mat_VarReadNext(mat)) != nullptr) {
+//         result[py::str((matvar->name))] = read_mat_var(matvar);
+//         Mat_VarFree(matvar);
+//     }
+
+//     Mat_Close(mat);
+//     return result;
+// }
+
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
@@ -10,12 +117,13 @@
 #include <map>
 #include <codecvt>
 #include <locale>
-#include "matio.h"
-#include "libmatio.h"
+#include <stdexcept>
+#include <cstring>
 
+#include "matio_private.h" // 添加这行，确保包含了完整的 matvar_internal 定义
+#include "matio.h"
 
 namespace py = pybind11;
-
 
 std::string gbk_to_utf8(const std::string& input) {
     try {
@@ -41,13 +149,189 @@ std::string utf8_to_gbk(const std::string& utf8_str) {
         return utf8_str;
     }
 }
+// Helper function to convert matvar_t to Python object
+py::object matvar_to_pyobject(matvar_t* matvar, int indent);
 
-py::object read_mat_var(matvar_t* matvar) {
-    if (matvar == nullptr) {
+// Helper function to handle numeric data types
+// py::object handle_numeric(matvar_t* matvar) {
+//     if(!matvar->data) {
+//         return py::none();
+//     }
+
+//     // Calculate the total number of elements
+//     size_t num_elements = 1;
+//     for(int i = 0; i < matvar->rank; ++i) {
+//         num_elements *= matvar->dims[i];
+//     }
+
+//     // Determine the NumPy dtype and class_type
+//     py::dtype np_dtype;
+//     switch(matvar->data_type) {
+//         case MAT_T_DOUBLE:
+//             np_dtype = py::dtype::of<double>();
+//             break;
+//         case MAT_T_SINGLE:
+//             np_dtype = py::dtype::of<float>();
+//             break;
+//         case MAT_T_INT8:
+//             np_dtype = py::dtype::of<int8_t>();
+//             break;
+//         case MAT_T_UINT8:
+//             np_dtype = py::dtype::of<uint8_t>();
+//             break;
+//         case MAT_T_INT16:
+//             np_dtype = py::dtype::of<int16_t>();
+//             break;
+//         case MAT_T_UINT16:
+//             np_dtype = py::dtype::of<uint16_t>();
+//             break;
+//         case MAT_T_INT32:
+//             np_dtype = py::dtype::of<int32_t>();
+//             break;
+//         case MAT_T_UINT32:
+//             np_dtype = py::dtype::of<uint32_t>();
+//             break;
+//         case MAT_T_INT64:
+//             np_dtype = py::dtype::of<int64_t>();
+//             break;
+//         case MAT_T_UINT64:
+//             np_dtype = py::dtype::of<uint64_t>();
+//             break;
+//         default:
+//             throw std::runtime_error("Unsupported MAT data type." + std::to_string(matvar->data_type));
+//     }
+
+//     // Prepare dimensions
+//     std::vector<ssize_t> dims(matvar->rank);
+//     for(int i = 0; i < matvar->rank; ++i) {
+//         dims[i] = static_cast<ssize_t>(matvar->dims[i]);
+//         printf("meet numeric type, rank: %zu, dims[%d]: %zu\n", matvar->rank, i, matvar->dims[i]);
+
+//     }
+            
+//     // 创建Fortran顺序的NumPy数组
+//     py::array arr = py::array(np_dtype, dims, matvar->data);
+    
+//     return arr;
+// }
+
+py::object handle_numeric(matvar_t* matvar) {
+    if(!matvar->data) {
         return py::none();
     }
 
-    switch (matvar->class_type) {
+    // Calculate the total number of elements
+    size_t num_elements = 1;
+    for(int i = 0; i < matvar->rank; ++i) {
+        num_elements *= matvar->dims[i];
+    }
+
+    // Determine the NumPy dtype and format descriptor
+    py::dtype np_dtype;
+    std::string format_descriptor;
+    size_t element_size;
+
+    switch(matvar->data_type) {
+        case MAT_T_DOUBLE:
+            np_dtype = py::dtype::of<double>();
+            format_descriptor = py::format_descriptor<double>::format();
+            element_size = sizeof(double);
+            break;
+        case MAT_T_SINGLE:
+            np_dtype = py::dtype::of<float>();
+            format_descriptor = py::format_descriptor<float>::format();
+            element_size = sizeof(float);
+            break;
+        case MAT_T_INT8:
+            np_dtype = py::dtype::of<int8_t>();
+            format_descriptor = py::format_descriptor<int8_t>::format();
+            element_size = sizeof(int8_t);
+            break;
+        case MAT_T_UINT8:
+            np_dtype = py::dtype::of<uint8_t>();
+            format_descriptor = py::format_descriptor<uint8_t>::format();
+            element_size = sizeof(uint8_t);
+            break;
+        case MAT_T_INT16:
+            np_dtype = py::dtype::of<int16_t>();
+            format_descriptor = py::format_descriptor<int16_t>::format();
+            element_size = sizeof(int16_t);
+            break;
+        case MAT_T_UINT16:
+            np_dtype = py::dtype::of<uint16_t>();
+            format_descriptor = py::format_descriptor<uint16_t>::format();
+            element_size = sizeof(uint16_t);
+            break;
+        case MAT_T_INT32:
+            np_dtype = py::dtype::of<int32_t>();
+            format_descriptor = py::format_descriptor<int32_t>::format();
+            element_size = sizeof(int32_t);
+            break;
+        case MAT_T_UINT32:
+            np_dtype = py::dtype::of<uint32_t>();
+            format_descriptor = py::format_descriptor<uint32_t>::format();
+            element_size = sizeof(uint32_t);
+            break;
+        case MAT_T_INT64:
+            np_dtype = py::dtype::of<int64_t>();
+            format_descriptor = py::format_descriptor<int64_t>::format();
+            element_size = sizeof(int64_t);
+            break;
+        case MAT_T_UINT64:
+            np_dtype = py::dtype::of<uint64_t>();
+            format_descriptor = py::format_descriptor<uint64_t>::format();
+            element_size = sizeof(uint64_t);
+            break;
+        default:
+            throw std::runtime_error("Unsupported MAT data type: " + std::to_string(matvar->data_type));
+    }
+    
+    // Prepare dimensions and strides
+    std::vector<ssize_t> shape(matvar->rank);
+    for (int i = 0; i < matvar->rank; ++i) {
+        shape[i] = static_cast<ssize_t>(matvar->dims[i]);
+    }
+    std::vector<ssize_t> strides = py::detail::f_strides(shape, element_size);
+    for (auto stride : strides) {
+        printf("stride: %zd\n", stride);
+    }
+
+    // ssize_t stride = element_size;
+    // for(int i = matvar->rank - 1; i >= 0; --i) {
+    //     shape[i] = static_cast<ssize_t>(matvar->dims[i]);
+    //     strides[i] = stride;
+    //     stride *= shape[i];
+    //     printf("meet numeric type, rank: %zu, dims[%d]: %zu, stride: %zd\n", matvar->rank, i, matvar->dims[i], strides[i]);
+    // }
+            
+    // 创建Fortran顺序的NumPy数组
+    // auto arr = py::array(py::buffer_info(
+    //     matvar->data,                           // 数据指针
+    //     element_size,                           // 每个元素的大小
+    //     format_descriptor,                      // 数据类型描述符
+    //     matvar->rank,                           // 维度数
+    //     shape,                                  // 形状
+    //     strides                                 // 步长
+    // ));
+    auto arr = py::array(np_dtype, shape, strides, matvar->data);
+    // show arr.attr("flags")
+    printf("arr.attr(\"flags\"): %s\n", arr.attr("flags").attr("__str__")().cast<std::string>().c_str());
+    // arr.attr("flags")["C_CONTIGUOUS"] = false;
+    // arr.attr("flags")["F_CONTIGUOUS"] = true;
+    // arr.attr("flags")["c_contiguous"] = false;
+
+    return arr;
+}
+
+// Function to convert matvar_t to Python object
+py::object matvar_to_pyobject(matvar_t* matvar, int indent) {
+    if(matvar == nullptr) {
+        return py::none();
+    }
+
+    printf("%*s matvar->class_type: %d\n", indent, "", matvar->class_type);
+
+    switch(matvar->class_type) {
         case MAT_C_DOUBLE:
         case MAT_C_SINGLE:
         case MAT_C_INT8:
@@ -57,170 +341,306 @@ py::object read_mat_var(matvar_t* matvar) {
         case MAT_C_INT32:
         case MAT_C_UINT32:
         case MAT_C_INT64:
-        case MAT_C_UINT64: {
-            std::vector<ssize_t> dims(matvar->dims, matvar->dims + matvar->rank);
-            py::array_t<double> arr(dims);
-            memcpy(arr.mutable_data(), matvar->data, matvar->nbytes);
-            return std::move(arr);
-        }
-        case MAT_C_CHAR: {
-            std::string raw_str(static_cast<char*>(matvar->data), matvar->nbytes);
-            std::string utf8_str = gbk_to_utf8(raw_str);
-            return py::str(utf8_str);
-        }
+        case MAT_C_UINT64:
+            return handle_numeric(matvar);
+        case MAT_C_EMPTY:
+            return py::none();
         case MAT_C_STRUCT: {
-            py::dict result;
-            size_t nfields = Mat_VarGetNumberOfFields(matvar);
-            char* const* fieldnames = Mat_VarGetStructFieldnames(matvar);
-            for (size_t i = 0; i < nfields; ++i) {
-                matvar_t* field = Mat_VarGetStructFieldByName(matvar, fieldnames[i], 0);
-                result[py::str((fieldnames[i]))] = read_mat_var(field);
+            py::dict struct_dict;
+            if(!matvar->internal) {
+                throw std::runtime_error("Malformed MAT_C_STRUCT variable: " + std::string(matvar->name));
             }
-            return std::move(result);
+            printf("%*s matvar->internal->num_fields: %d\n", indent, "", matvar->internal->num_fields);
+            for(unsigned i = 0; i < matvar->internal->num_fields; ++i) {
+                const char* field_name = matvar->internal->fieldnames[i];
+                matvar_t* field_var = static_cast<matvar_t**>(matvar->data)[i];
+                printf("%*s field_name: %s, field_var: %p\n", indent, "", field_name, field_var);
+
+                if(field_var) {
+                    struct_dict[field_name] = matvar_to_pyobject(field_var, indent + 1);
+                } else {
+                    struct_dict[field_name] = py::none();
+                }
+            }
+            return struct_dict;
         }
         case MAT_C_CELL: {
-            py::list result;
-            for (size_t i = 0; i < matvar->nbytes / sizeof(matvar_t*); ++i) {
-                matvar_t* cell = Mat_VarGetCell(matvar, i);
-                result.append(read_mat_var(cell));
+            py::list cell_list;
+            matvar_t** cells = static_cast<matvar_t**>(matvar->data);
+            printf("%*s matvar->dims[0]: %zu, matvar->dims[1]: %zu\n", indent, "", matvar->dims[0], matvar->dims[1]);
+            for(size_t i = 0; i < matvar->dims[0] * matvar->dims[1]; ++i) {
+                if(cells[i]) {
+                    cell_list.append(matvar_to_pyobject(cells[i], indent + 1));
+                } else {
+                    cell_list.append(py::none());
+                }
             }
-            return std::move(result);
+            return cell_list;
+        }
+        case MAT_C_CHAR: {
+            printf("%*s MAT_C_CHAT matvar->data: %s\n", indent, "", static_cast<char*>(matvar->data));
+
+            if(!matvar->data) {
+                return py::str("");
+            }
+            std::string raw_str(static_cast<char*>(matvar->data), matvar->nbytes);
+            std::string utf8_str = gbk_to_utf8(raw_str);
+
+            // Trim trailing spaces
+            size_t endpos = utf8_str.find_last_not_of(" ");
+            if(endpos != std::string::npos) {
+                utf8_str = utf8_str.substr(0, endpos + 1);
+            }
+            return py::str(utf8_str);
+        }
+        case MAT_C_OPAQUE: {
+            printf("%*s MAT_C_OPAQUE matvar->data: %s\n", indent, "", static_cast<char*>(matvar->data));
+            if (!matvar->data) {
+                return py::str("");
+            }
+            return py::str(static_cast<char*>(matvar->data));
         }
         default:
-            return py::none();
+            throw std::runtime_error("Unsupported MAT class: " + std::to_string(matvar->class_type));
     }
 }
 
+// Function to load MAT file
 py::dict loadmat(const std::string& filename) {
-    mat_t* mat = Mat_Open(filename.c_str(), MAT_ACC_RDONLY);
-    if (mat == nullptr) {
-        throw std::runtime_error("Failed to open MAT file");
+    mat_t* matfp = Mat_Open(filename.c_str(), MAT_ACC_RDONLY);
+    if(matfp == nullptr) {
+        throw std::runtime_error("Failed to open MAT file: " + filename);
     }
 
-    py::dict result;
     matvar_t* matvar;
-    while ((matvar = Mat_VarReadNext(mat)) != nullptr) {
-        result[py::str((matvar->name))] = read_mat_var(matvar);
+    py::dict mat_dict;
+
+    while((matvar = Mat_VarReadNext(matfp)) != nullptr) {
+        try {
+            printf("in matvar->name: %s\n", matvar->name);
+            mat_dict[matvar->name] = matvar_to_pyobject(matvar, 0);
+            printf("out matvar->name: %s\n", matvar->name);
+        } catch(const std::exception& e) {
+            printf("Error processing variable '%s': %s\n", matvar->name, e.what());
+            Mat_VarFree(matvar);
+            Mat_Close(matfp);
+
+            throw std::runtime_error(std::string("Error processing variable"));
+        }
         Mat_VarFree(matvar);
     }
 
-    Mat_Close(mat);
-    return result;
+    Mat_Close(matfp);
+    return mat_dict;
 }
 
-void write_mat_var(mat_t* mat, const std::string& name, const py::object& data, int indent = 0) {
-    if (py::isinstance<py::array>(data)) {
-        py::array arr = data.cast<py::array>();
-        std::vector<size_t> dims(arr.ndim());
-        for (size_t i = 0; i < arr.ndim(); ++i) {
-            dims[i] = arr.shape(i);
-        }
-        
-        matio_classes class_type;
-        matio_types data_type;
-        
-        if (arr.dtype().kind() == 'f') {
-            class_type = MAT_C_DOUBLE;
-            data_type = MAT_T_DOUBLE;
-        } else if (arr.dtype().kind() == 'i') {
-            class_type = MAT_C_INT32;
-            data_type = MAT_T_INT32;
-        } else {
-            throw std::runtime_error("Unsupported array data type");
-        }
+// Helper function to convert Python object to matvar_t
+matvar_t* pyobject_to_matvar(const std::string& name, py::object obj);
 
-        printf("%*s write mat var py::array: %s, %d, %d, dim: %d\n", indent, "", name.c_str(), class_type, data_type, arr.ndim());
+// Helper function to handle numeric data for savemat
+matvar_t* handle_numeric_save(const std::string& name, py::array& array) {
+    matio_classes class_type;
+    matio_types data_type;
 
-        matvar_t* matvar = Mat_VarCreate(name.c_str(), class_type, data_type, arr.ndim(), dims.data(), arr.data(), 0);
-        Mat_VarWrite(mat, matvar, MAT_COMPRESSION_NONE);
-        Mat_VarFree(matvar);
+    // Determine the MAT class and type based on NumPy dtype
+    if(array.dtype().is(py::dtype::of<double>())) {
+        class_type = MAT_C_DOUBLE;
+        data_type = MAT_T_DOUBLE;
     }
-    else if (py::isinstance<py::str>(data)) {
-        printf("%*s write mat var py::str: %s, %d, %d, %d\n", indent, "", name.c_str(), MAT_C_CHAR, MAT_T_UTF8, 2);
-        std::string str = utf8_to_gbk(data.cast<std::string>());
-        size_t dims[2] = {1, str.length()};
-        matvar_t* matvar = Mat_VarCreate(name.c_str(), MAT_C_CHAR, MAT_T_UTF8, 2, dims, const_cast<char*>(str.c_str()), 0);
-        Mat_VarWrite(mat, matvar, MAT_COMPRESSION_NONE);
-        Mat_VarFree(matvar);
+    else if(array.dtype().is(py::dtype::of<float>())) {
+        class_type = MAT_C_SINGLE;
+        data_type = MAT_T_SINGLE;
     }
-    else if (py::isinstance<py::dict>(data)) {
-        py::dict dict = data.cast<py::dict>();
-        std::vector<const char*> fieldnames;
-        std::vector<matvar_t*> fields;
-        
-        for (auto item : dict) {
-            std::string key = py::str(item.first).cast<std::string>();
-            fieldnames.push_back(strdup(key.c_str()));
-            printf("%*s write mat var py::dict: %s, %d, %d, %d\n", indent, "", key.c_str(), MAT_C_STRUCT, MAT_T_STRUCT, 2);
-            // 创建一个临时变量来存储字段值
-            matvar_t* field = Mat_VarCreate(key.c_str(), MAT_C_DOUBLE, MAT_T_DOUBLE, 0, nullptr, nullptr, 0);
-            write_mat_var(mat, key, item.second.cast<py::object>(), indent + 2);
-            fields.push_back(field);
-        }
-        
-        size_t dims[2] = {1, 1};
-        matvar_t* matvar = Mat_VarCreate(name.c_str(), MAT_C_STRUCT, MAT_T_STRUCT, 2, dims, nullptr, 0);
-        
-        // 使用 Mat_VarAddStructField 来添加字段
-        for (size_t i = 0; i < fieldnames.size(); ++i) {
-            Mat_VarAddStructField(matvar, fieldnames[i]);
-            Mat_VarSetStructFieldByName(matvar, fieldnames[i], 0, fields[i]);
-        }
-        
-        Mat_VarWrite(mat, matvar, MAT_COMPRESSION_NONE);
-        Mat_VarFree(matvar);
-        
-        // 清理内存
-        for (auto field : fields) {
-            Mat_VarFree(field);
-        }
-        for (auto fieldname : fieldnames) {
-            free(const_cast<char*>(fieldname));
-        }
+    else if(array.dtype().is(py::dtype::of<int8_t>())) {
+        class_type = MAT_C_INT8;
+        data_type = MAT_T_INT8;
     }
-    else if (py::isinstance<py::list>(data)) {
-        py::list list = data.cast<py::list>();
-        size_t dims[2] = {1, list.size()};
-        matvar_t* matvar = Mat_VarCreate(name.c_str(), MAT_C_CELL, MAT_T_CELL, 2, dims, nullptr, 0);
-        printf("%*s write mat var py::list: %s, %d, %d, dim: %d\n", indent, "", name.c_str(), MAT_C_CELL, MAT_T_CELL, list.size());
-        for (size_t i = 0; i < list.size(); ++i) {
-            matvar_t* cell = Mat_VarCreate(nullptr, MAT_C_DOUBLE, MAT_T_DOUBLE, 0, nullptr, nullptr, 0);
-            write_mat_var(mat, "", list[i], indent + 2);
-            Mat_VarSetCell(matvar, i, cell);
-            Mat_VarFree(cell);
-        }
-        
-        Mat_VarWrite(mat, matvar, MAT_COMPRESSION_NONE);
-        Mat_VarFree(matvar);
+    else if(array.dtype().is(py::dtype::of<uint8_t>())) {
+        class_type = MAT_C_UINT8;
+        data_type = MAT_T_UINT8;
     }
-    else if (py::isinstance<py::none>(data)) {
-        printf("%*s write mat var py::none: %s, %d, %d, %d\n", indent, "", name.c_str(), MAT_C_EMPTY, MAT_T_DOUBLE, 2);
-        size_t dims[2] = {0, 0};  // 创建一个 0x0 的空矩阵
-        matvar_t* matvar = Mat_VarCreate(name.c_str(), MAT_C_EMPTY, MAT_T_DOUBLE, 2, dims, nullptr, 0);
-        Mat_VarWrite(mat, matvar, MAT_COMPRESSION_NONE);
-        Mat_VarFree(matvar);
+    else if(array.dtype().is(py::dtype::of<int16_t>())) {
+        class_type = MAT_C_INT16;
+        data_type = MAT_T_INT16;
+    }
+    else if(array.dtype().is(py::dtype::of<uint16_t>())) {
+        class_type = MAT_C_UINT16;
+        data_type = MAT_T_UINT16;
+    }
+    else if(array.dtype().is(py::dtype::of<int32_t>())) {
+        class_type = MAT_C_INT32;
+        data_type = MAT_T_INT32;
+    }
+    else if(array.dtype().is(py::dtype::of<uint32_t>())) {
+        class_type = MAT_C_UINT32;
+        data_type = MAT_T_UINT32;
+    }
+    else if(array.dtype().is(py::dtype::of<int64_t>())) {
+        class_type = MAT_C_INT64;
+        data_type = MAT_T_INT64;
+    }
+    else if(array.dtype().is(py::dtype::of<uint64_t>())) {
+        class_type = MAT_C_UINT64;
+        data_type = MAT_T_UINT64;
     }
     else {
-        printf("%*s write mat var unsupported data type: %s, %s\n", indent, "", name.c_str(), py::str(data.get_type()).cast<std::string>().c_str());
-        throw std::runtime_error("Unsupported data type");
+        throw std::runtime_error("Unsupported NumPy dtype for numeric array: '" + std::string(1, array.dtype().char_()) + "'");
+    }
+
+    // Prepare dimensions
+    std::vector<size_t> dims(array.ndim());
+    for(size_t i = 0; i < array.ndim(); ++i) {
+        dims[i] = array.shape(i);
+    }
+
+    matvar_t* matvar = Mat_VarCreate(name.c_str(), class_type, data_type, static_cast<int>(array.ndim()), dims.data(), array.data(), 0);
+    if(matvar == nullptr) {
+        throw std::runtime_error("Failed to create MAT variable for numeric array: " + name);
+    }
+
+    return matvar;
+}
+
+// Function to convert Python object to matvar_t
+matvar_t* pyobject_to_matvar(const std::string& name, py::object obj) {
+    if(py::isinstance<py::array>(obj)) {
+        py::array array = py::cast<py::array>(obj);
+        if(array.dtype().is(py::dtype::of<std::complex<double>>())) {
+            throw std::runtime_error("Complex type is not supported");
+        }
+        else {
+            // Handle real numeric arrays
+            return handle_numeric_save(name, array);
+        }
+    }
+    else if(py::isinstance<py::dict>(obj)) {
+        py::dict dict = py::cast<py::dict>(obj);
+        std::vector<const char*> field_names;
+        std::vector<matvar_t*> fields;
+
+        for(auto item : dict) {
+            std::string field_name = py::str(item.first);
+            field_names.push_back(strdup(field_name.c_str())); // To be freed later
+            matvar_t* field_var = pyobject_to_matvar(field_name, pybind11::reinterpret_borrow<pybind11::object>(item.second));
+
+            if(field_var == nullptr) {
+                // Free previously allocated memory
+                for(auto fn : field_names) free((void*)fn);
+                for(auto fv : fields) Mat_VarFree(fv);
+                throw std::runtime_error("Unsupported Python object type in struct field: " + field_name);
+            }
+            fields.push_back(field_var);
+        }
+
+        size_t num_fields = field_names.size();
+        std::vector<const char*> c_field_names(num_fields);
+        for(size_t i = 0; i < num_fields; ++i) {
+            c_field_names[i] = field_names[i];
+        }
+
+        size_t dims[2] = {1, 1};
+        matvar_t* matvar = Mat_VarCreateStruct(name.c_str(), 2, dims, c_field_names.data(), num_fields);
+        if(matvar == nullptr) {
+            for(auto fn : field_names) free((void*)fn);
+            for(auto fv : fields) Mat_VarFree(fv);
+            throw std::runtime_error("Failed to create MAT struct variable: " + name);
+        }
+
+        for(size_t i = 0; i < num_fields; ++i) {
+            if(Mat_VarSetStructFieldByName(matvar, c_field_names[i], 0, fields[i]) != 0) {
+                Mat_VarFree(matvar);
+                for(auto fn : field_names) free((void*)fn);
+                for(auto fv : fields) Mat_VarFree(fv);
+                throw std::runtime_error("Failed to set struct field: " + std::string(c_field_names[i]));
+            }
+            // Ownership of fields[i] is transferred to matvar
+        }
+
+        // Free allocated field names
+        for(auto fn : field_names) free((void*)fn);
+
+        return matvar;
+    }
+    else if(py::isinstance<py::list>(obj)) {
+        py::list list = py::cast<py::list>(obj);
+        size_t num_elements = list.size();
+        size_t dims[2] = {1, num_elements};
+        matvar_t* matvar = Mat_VarCreate(name.c_str(), MAT_C_CELL, MAT_T_CELL, 2, dims, NULL, 0);
+        if(matvar == nullptr) {
+            throw std::runtime_error("Failed to create MAT cell array variable: " + name);
+        }
+
+        for(size_t i = 0; i < num_elements; ++i) {
+            py::object item = list[i];
+            matvar_t* cell_var = pyobject_to_matvar("", item); // Empty name for cell
+            if(cell_var == nullptr) {
+                Mat_VarFree(matvar);
+                throw std::runtime_error("Unsupported Python object type in cell array.");
+            }
+            if(Mat_VarSetCell(matvar, i, cell_var) != 0) {
+                Mat_VarFree(cell_var);
+                Mat_VarFree(matvar);
+                throw std::runtime_error("Failed to set cell array element at index: " + std::to_string(i));
+            }
+        }
+
+        return matvar;
+    }
+    else if(py::isinstance<py::str>(obj)) {
+        std::string str = py::str(obj);
+        size_t dims[2] = {1, str.size()};
+        matvar_t* matvar = Mat_VarCreate(name.c_str(), MAT_C_CHAR, MAT_T_UINT8, 2, dims, (void*)str.c_str(), 0);
+        if(matvar == nullptr) {
+            throw std::runtime_error("Failed to create MAT char variable: " + name);
+        }
+        return matvar;
+    }
+    else {
+        throw std::runtime_error("Unsupported Python object type for MAT variable: " + name);
     }
 }
 
-void savemat(const std::string& filename, const py::dict& data) {
-    printf("save mat filename: %s\n", filename.c_str());
-    mat_t* mat = Mat_CreateVer(filename.c_str(), nullptr, MAT_FT_MAT73);
-    if (mat == nullptr) {
-        throw std::runtime_error("Failed to create MAT file");
+// Function to save MAT file
+void savemat(const std::string& filename, py::dict dict) {
+    mat_t* matfp = Mat_CreateVer(filename.c_str(), NULL, MAT_FT_DEFAULT);
+    if(matfp == nullptr) {
+        throw std::runtime_error("Failed to create MAT file: " + filename);
     }
-    
-    for (auto item : data) {
-        std::string key = py::str(item.first);
-        printf("save mat key: %s\n", key.c_str());
-        write_mat_var(mat, key, item.second.cast<py::object>(), 0);
+
+    for(auto item : dict) {
+        std::string var_name = py::str(item.first);
+        py::object obj = py::reinterpret_borrow<py::object>(item.second);
+        matvar_t* matvar = nullptr;
+
+        try {
+            matvar = pyobject_to_matvar(var_name, obj);
+        } catch(const std::exception& e) {
+            Mat_Close(matfp);
+            throw std::runtime_error(std::string("Error converting Python object to MAT variable for '") + var_name + "': " + e.what());
+        }
+
+        if(Mat_VarWrite(matfp, matvar, MAT_COMPRESSION_ZLIB) != 0) {
+            Mat_VarFree(matvar);
+            Mat_Close(matfp);
+            throw std::runtime_error("Failed to write MAT variable: " + var_name);
+        }
+
+        Mat_VarFree(matvar);
     }
-    
-    Mat_Close(mat);
+
+    Mat_Close(matfp);
+    return;
 }
+
+pybind11::tuple get_library_version() {
+    int version[3];
+    Mat_GetLibraryVersion(version, version + 1, version + 2);
+    pybind11::tuple v(3);
+    for (int i = 0; i < 3; i++)
+        v[i] = version[i];
+    return v;
+}
+
 PYBIND11_MODULE(libpymatio, m) {
     
     m.def("loadmat", &loadmat, "Load a MAT file",
@@ -335,7 +755,7 @@ PYBIND11_MODULE(libpymatio, m) {
 //     .def_property("real", &matio::MatComplexSplitT::get_real, &matio::MatComplexSplitT::set_real, "Pointer to the real part.")
 //     .def_property("imag", &matio::MatComplexSplitT::get_imag, &matio::MatComplexSplitT::set_imag, "Pointer to the imaginary part.");
 m
-    .def("get_library_version", &matio::get_library_version, pybind11::return_value_policy::move, "Get the version of the library.");
+    .def("get_library_version", &get_library_version, pybind11::return_value_policy::move, "Get the version of the library.");
 //     .def("log_init", &matio::log_init, "Initializes the logging system.")
 //     .def("set_debug", &matio::set_debug, "Set debug parameter.")
 //     .def("critical", &matio::critical, "Logs a Critical message and returns to the user.")

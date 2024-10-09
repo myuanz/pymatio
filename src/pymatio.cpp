@@ -134,20 +134,28 @@ std::string string_to_utf8(int string_type, const std::string& input) {
 
         switch (string_type) {
             case MAT_T_UTF8:
-        return input;
-            case MAT_T_UTF16: {
+            case MAT_T_UINT8:
+                return input;
+            case MAT_T_UTF16:
+            case MAT_T_UINT16: {
                 std::wstring utf16_str = utf16_conv.from_bytes(input);
                 return utf8_conv.to_bytes(utf16_str);
             }
-            case MAT_T_UTF32: {
+            case MAT_T_UTF32: 
+            case MAT_T_UINT32: {
                 std::u32string utf32_str(reinterpret_cast<const char32_t*>(input.data()), input.length() / sizeof(char32_t));
                 return utf32_conv.to_bytes(utf32_str);
             }
             default:
                 throw std::runtime_error("Unsupported string type: " + std::to_string(string_type));
         }
-    } catch (const std::exception&) {
-        printf("string_to_utf8 error: %s\n", input.c_str());
+    } catch (const std::exception& e) {
+        printf("string_to_utf8 error: ");
+        for (unsigned char c : input) {
+            printf("%02x ", c);
+        }
+        printf("\n");
+        printf("string_to_utf8 error: %s\n", e.what());
         // 如果转换失败，返回原始字符串
         return input;
     }

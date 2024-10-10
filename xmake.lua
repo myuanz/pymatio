@@ -143,13 +143,14 @@ add_requires("_matio", {
     configs = {zlib = true , hdf5 = true, mat73 = true},
 })
 add_requires("_pybind11")
+add_requires("fmt", "backward-cpp", {system = false})
 
 -- add_requireconfs("pybind11", {override = true}) -- 如果系统自带了 pybind11，偶尔会出现一些问题，所以这里一定要用 xrepo 的
 -- add_requireconfs("pybind11")
 
 target("libpymatio")
     set_kind("shared")
-    add_packages("_matio", "_pybind11")
+    add_packages("_matio", "_pybind11", "fmt", "backward-cpp")
     -- 添加 include 目录
     add_includedirs("$(env XMAKE_PYBIND11_INCLUDE)/", {public = true})
     add_includedirs("$(env XMAKE_PYTHON_INCLUDE)/", {public = true})
@@ -179,31 +180,4 @@ target("libpymatio")
         for k, v in pairs(envs) do
             print(k, v, path.is_absolute(v))
         end
-        -- package:add("sysincludedirs", envs["XMAKE_PYBIND11_INCLUDE"] .. "/", {public = true})
-        -- package:add("sysincludedirs", envs["XMAKE_PYTHON_INCLUDE"] .. "/", {public = true})
-
     end)
-
-    -- print(os.getenv("PYTHONPATH"))
-    -- print(os.getenv("PATH"))
-
-    -- after_build(function (target)
-    --     -- local pydir = path.join(os.projectdir(), "pymatio")
-    --     -- local target_file_name = path.filename(target:targetfile())
-
-    --     -- remove the prefix "lib"
-    --     -- local target_file_name = target_file_name:sub(4, -1)
-    --     -- local target_file = path.join(pydir, target_file_name)
-    --     -- print("target_file: " .. target_file)
-
-    --     -- local pydir = path.join("$(buildir)", "binary")
-    --     -- os.mkdir(pydir)
-
-    --     -- local f = io.open("C:/Users/myuan/logs/log.log", "w")
-    --     -- os.rm(pydir .. "/*.pyd")
-    --     -- os.rm(pydir .. "/*.so")
-    --     -- f:write("pydir " .. pydir .. "\n")
-    --     -- f:write("target:targetfile() " .. target:targetfile() .. "\n")
-
-    --     -- os.cp(target:targetfile(), target_file)
-    -- end)

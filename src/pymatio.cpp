@@ -345,20 +345,19 @@ py::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cell
         total_elements *= dim;
     }
     printf("%*s cell total_elements: %zu\n", indent, "", total_elements);
-    printf("%*s shape: %zu, rank: %zu\n", indent, "", shape.size(), matvar->rank);
-    for (const auto& dim : shape) {
-        printf("%*s  shape dim: %zu\n", indent, "", dim);
+    printf("%*s rank: %zu\n", indent, "", matvar->rank);
+    printf("%*s shape: (", indent, "");
+    for (const auto& s : shape) {
+        printf("%zu, ", s);
     }
-    // 创建一个 object 类型的 NumPy 数组
+    printf(")\n");
+
+    if (total_elements == 1 && simplify_cells) {
+        return matvar_to_pyobject(Mat_VarGetCell(matvar, 0), indent + 2, simplify_cells);
+    }
+
     std::vector<ssize_t> strides = py::detail::f_strides(shape, py::dtype("O").itemsize());
-    // std::vector<ssize_t> strides = py::detail::c_strides(shape, py::dtype("O").itemsize());
     py::array cell_array = py::array(py::dtype("O"), shape, strides);
-
-    printf("%*s stride elem size: %zu %zu\n", indent, "", py::dtype("O").itemsize(), sizeof(matvar_t*));
-    for(size_t i = 0; i < shape.size(); ++i) {
-        printf("%*s strides: %zu\n", indent, "", cell_array.strides()[i]);
-    }
-
     matvar_t** cells = Mat_VarGetCellsLinear(matvar, 0, 1, total_elements);
     py::array cell_array_reshaped = cell_array.attr("ravel")("F");
 
@@ -367,7 +366,7 @@ py::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cell
         printf("%*s set item %zu\n", indent, "", i);
 
         if (cells[i]) {
-            obj = matvar_to_pyobject(cells[i], indent + 1, simplify_cells);
+            obj = matvar_to_pyobject(cells[i], indent + 2, simplify_cells);
         } else {
             // obj = py::none();
             // the default value of cell is empty array, so set it to empty is not necessary
@@ -411,7 +410,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
                 printf("%*s field_name: %s, field_var: %p\n", indent, "", field_name, field_var);
 
                 if(field_var) {
-                    struct_dict[field_name] = matvar_to_pyobject(field_var, indent + 1, simplify_cells);
+                    struct_dict[field_name] = matvar_to_pyobject(field_var, indent + 2, simplify_cells);
                 } else {
                     struct_dict[field_name] = py::none();
                 }
@@ -426,7 +425,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
             printf("%*s matvar->dims[0]: %zu, matvar->dims[1]: %zu\n", indent, "", matvar->dims[0], matvar->dims[1]);
             for(size_t i = 0; i < matvar->dims[0] * matvar->dims[1]; ++i) {
                 if(cells[i]) {
-                    cell_list.append(matvar_to_pyobject(cells[i], indent + 1, simplify_cells));
+                    cell_list.append(matvar_to_pyobject(cells[i], indent + 2, simplify_cells));
                 } else {
                     cell_list.append(py::none());
                 }

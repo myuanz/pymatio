@@ -1,113 +1,3 @@
-//
-// Created by Administrator on 2023/11/1.
-//
-// #include <pybind11/pybind11.h>
-// #include <pybind11/numpy.h>
-// #include <pybind11/stl.h>
-// #include <matio.h>
-// #include <string>
-// #include <vector>
-// #include <map>
-// #include <codecvt>
-// #include <locale>
-// #include "matio.h"
-// #include "libmatio.h"
-
-
-// namespace py = pybind11;
-
-
-// std::string gbk_to_utf8(const std::string& input) {
-//     try {
-//         static std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_conv;
-//         std::wstring_convert<std::codecvt_utf16<wchar_t, 0x10ffff, std::little_endian>> gbk_conv;
-//         std::wstring utf16_str = gbk_conv.from_bytes(input);
-//         return utf8_conv.to_bytes(utf16_str);
-//     } catch (const std::exception&) {
-//         printf("gbk_to_utf8 error: %s\n", input.c_str());
-//         // 如果转换失败，返回原始字符串
-//         return input;
-//     }
-// }
-
-// std::string utf8_to_gbk(const std::string& utf8_str) {
-//     try {
-//         static std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_conv;
-//         std::wstring_convert<std::codecvt_utf16<wchar_t, 0x10ffff, std::little_endian>> gbk_conv;
-//         std::wstring utf16_str = utf8_conv.from_bytes(utf8_str);
-//         return gbk_conv.to_bytes(utf16_str);
-//     } catch (const std::exception&) {
-//         // 如果转换失败，返回原始字符串
-//         return utf8_str;
-//     }
-// }
-
-// py::object read_mat_var(matvar_t* matvar) {
-//     if (matvar == nullptr) {
-//         return py::none();
-//     }
-
-//     switch (matvar->class_type) {
-//         case MAT_C_DOUBLE:
-//         case MAT_C_SINGLE:
-//         case MAT_C_INT8:
-//         case MAT_C_UINT8:
-//         case MAT_C_INT16:
-//         case MAT_C_UINT16:
-//         case MAT_C_INT32:
-//         case MAT_C_UINT32:
-//         case MAT_C_INT64:
-//         case MAT_C_UINT64: {
-//             std::vector<ssize_t> dims(matvar->dims, matvar->dims + matvar->rank);
-//             py::array_t<double> arr(dims);
-//             memcpy(arr.mutable_data(), matvar->data, matvar->nbytes);
-//             return std::move(arr);
-//         }
-//         case MAT_C_CHAR: {
-//             std::string raw_str(static_cast<char*>(matvar->data), matvar->nbytes);
-//             std::string utf8_str = gbk_to_utf8(raw_str);
-//             return py::str(utf8_str);
-//         }
-//         case MAT_C_STRUCT: {
-//             py::dict result;
-//             size_t nfields = Mat_VarGetNumberOfFields(matvar);
-//             char* const* fieldnames = Mat_VarGetStructFieldnames(matvar);
-//             for (size_t i = 0; i < nfields; ++i) {
-//                 matvar_t* field = Mat_VarGetStructFieldByName(matvar, fieldnames[i], 0);
-//                 result[py::str((fieldnames[i]))] = read_mat_var(field);
-//             }
-//             return std::move(result);
-//         }
-//         case MAT_C_CELL: {
-//             py::list result;
-//             for (size_t i = 0; i < matvar->nbytes / sizeof(matvar_t*); ++i) {
-//                 matvar_t* cell = Mat_VarGetCell(matvar, i);
-//                 result.append(read_mat_var(cell));
-//             }
-//             return std::move(result);
-//         }
-//         default:
-//             return py::none();
-//     }
-// }
-
-// py::dict loadmat(const std::string& filename) {
-//     mat_t* mat = Mat_Open(filename.c_str(), MAT_ACC_RDONLY);
-//     if (mat == nullptr) {
-//         throw std::runtime_error("Failed to open MAT file");
-//     }
-
-//     py::dict result;
-//     matvar_t* matvar;
-//     while ((matvar = Mat_VarReadNext(mat)) != nullptr) {
-//         result[py::str((matvar->name))] = read_mat_var(matvar);
-//         Mat_VarFree(matvar);
-//     }
-
-//     Mat_Close(mat);
-//     return result;
-// }
-
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
@@ -119,11 +9,43 @@
 #include <locale>
 #include <stdexcept>
 #include <cstring>
+#include <fmt/format.h>
+#include <iostream>
+#include <backward.hpp>
 
 #include "matio_private.h" // 添加这行，确保包含了完整的 matvar_internal 定义
 #include "matio.h"
 
 namespace py = pybind11;
+
+
+static bool DEBUG_LOG_ENABLED = false;
+
+template<typename... Args>
+void debug_log_with_indent(const std::string& fmt, int indent, Args&&... args) {
+    if (!DEBUG_LOG_ENABLED) {
+        return;
+    }
+    try {
+        std::string formatted = fmt::format(fmt, std::forward<Args>(args)...);
+        return fmt::println("{:{}}{}", "", indent, formatted);
+    } catch (const fmt::format_error& e) {
+        std::cerr << "Format error in debug_log_with_indent: " << e.what() << "\n";
+        std::cerr << "Format string: " << fmt << "\n";
+        std::cerr << "Indent: " << indent << "\n";
+        std::cerr << "Argument types: ";
+        int dummy[] = { 0, (std::cerr << typeid(Args).name() << " ", 0)... };
+        (void)dummy;
+        std::cerr << "\n";
+        throw; 
+    }
+}
+
+template<typename... Args>
+void debug_log(const std::string& fmt, Args&&... args) {
+    return debug_log_with_indent(fmt, 0, std::forward<Args>(args)...);
+}
+
 
 std::string string_to_utf8(int string_type, const std::string& input) {
     // match MAT_T_UTF8 MAT_T_UTF16 MAT_T_UTF32
@@ -316,8 +238,6 @@ py::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
     std::vector<ssize_t> strides = py::detail::f_strides(shape, element_size);
 
     auto arr = py::array(np_dtype, shape, strides, matvar->data);
-    // printf("arr.attr(\"flags\"): %s\n", arr.attr("flags").attr("__str__")().cast<std::string>().c_str());
-
     return arr;
 }
 
@@ -344,13 +264,14 @@ py::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cell
     for (const auto& dim : shape) {
         total_elements *= dim;
     }
-    printf("%*s cell total_elements: %zu\n", indent, "", total_elements);
-    printf("%*s rank: %zu\n", indent, "", matvar->rank);
-    printf("%*s shape: (", indent, "");
+    debug_log_with_indent("cell total_elements: {:d}", indent, total_elements);
+    debug_log_with_indent("rank: {:d}", indent, matvar->rank);
+
+    std::string shape_str = "shape: (";
     for (const auto& s : shape) {
-        printf("%zu, ", s);
+        shape_str += std::to_string(s) + ", ";
     }
-    printf(")\n");
+    debug_log_with_indent(shape_str + ")", indent);
 
     if (total_elements == 1 && simplify_cells) {
         return matvar_to_pyobject(Mat_VarGetCell(matvar, 0), indent + 2, simplify_cells);
@@ -363,7 +284,7 @@ py::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cell
 
     for (size_t i = 0; i < total_elements; ++i) {
         py::object obj;
-        printf("%*s set item %zu\n", indent, "", i);
+        debug_log_with_indent("set item {:d}", indent, i);
 
         if (cells[i]) {
             obj = matvar_to_pyobject(cells[i], indent + 2, simplify_cells);
@@ -382,7 +303,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
         return py::none();
     }
 
-    printf("%*s matvar %s\n", indent, "", combine_var_type(matvar).c_str());
+    debug_log_with_indent("matvar {:s}", indent, combine_var_type(matvar).c_str());
 
     switch(matvar->class_type) {
         case MAT_C_DOUBLE:
@@ -403,11 +324,11 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
             if(!matvar->internal) {
                 throw std::runtime_error("Malformed MAT_C_STRUCT variable: " + std::string(matvar->name));
             }
-            printf("%*s matvar->internal->num_fields: %d\n", indent, "", matvar->internal->num_fields);
+            debug_log_with_indent("matvar->internal->num_fields: {:d}", indent, matvar->internal->num_fields);
             for(unsigned i = 0; i < matvar->internal->num_fields; ++i) {
                 const char* field_name = matvar->internal->fieldnames[i];
                 matvar_t* field_var = static_cast<matvar_t**>(matvar->data)[i];
-                printf("%*s field_name: %s, field_var: %p\n", indent, "", field_name, field_var);
+                debug_log_with_indent("field_name: {:s}", indent, field_name);
 
                 if(field_var) {
                     struct_dict[field_name] = matvar_to_pyobject(field_var, indent + 2, simplify_cells);
@@ -422,7 +343,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
 
             py::list cell_list;
             matvar_t** cells = static_cast<matvar_t**>(matvar->data);
-            printf("%*s matvar->dims[0]: %zu, matvar->dims[1]: %zu\n", indent, "", matvar->dims[0], matvar->dims[1]);
+            debug_log_with_indent("matvar->dims[0]: {:d}, matvar->dims[1]: {:d}", indent, matvar->dims[0], matvar->dims[1]);
             for(size_t i = 0; i < matvar->dims[0] * matvar->dims[1]; ++i) {
                 if(cells[i]) {
                     cell_list.append(matvar_to_pyobject(cells[i], indent + 2, simplify_cells));
@@ -433,13 +354,13 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
             return cell_list;
         }
         case MAT_C_CHAR: {
-            printf("%*s MAT_C_CHAT matvar->data: %s\n", indent, "", static_cast<char*>(matvar->data));
-
             if(!matvar->data) {
                 return py::str("");
             }
+
             std::string raw_str(static_cast<char*>(matvar->data), matvar->nbytes);
             std::string utf8_str = string_to_utf8(matvar->data_type, raw_str);
+            debug_log_with_indent("MAT_C_CHAT matvar->data: `{:s}`", indent, utf8_str);
 
             // Trim trailing spaces
             size_t endpos = utf8_str.find_last_not_of(" ");
@@ -457,7 +378,11 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
 }
 
 // Function to load MAT file
-py::dict loadmat(const std::string& filename, bool simplify_cells = false) {
+py::dict loadmat(const std::string& filename, bool simplify_cells = false, bool debug_log_enabled = false) {
+    DEBUG_LOG_ENABLED = debug_log_enabled || std::getenv("PYMATIO_DEBUG") != nullptr;
+
+    debug_log("loadmat: {}", filename);
+
     mat_t* matfp = Mat_Open(filename.c_str(), MAT_ACC_RDONLY);
     if(matfp == nullptr) {
         throw std::runtime_error("Failed to open MAT file: " + filename);
@@ -468,13 +393,18 @@ py::dict loadmat(const std::string& filename, bool simplify_cells = false) {
 
     while((matvar = Mat_VarReadNext(matfp)) != nullptr) {
         try {
-            printf("in matvar->name: %s\n", matvar->name);
+            debug_log("in matvar->name: {:s}", matvar->name);
             mat_dict[matvar->name] = matvar_to_pyobject(matvar, 0, simplify_cells);
-            printf("out matvar->name: %s\n", matvar->name);
+            debug_log("out matvar->name: {:s}", matvar->name);
         } catch(const std::exception& e) {
-            printf("Error processing variable '%s': %s\n", matvar->name, e.what());
+            debug_log("Error processing variable '{:s}': {:s}", matvar->name, e.what());
             Mat_VarFree(matvar);
             Mat_Close(matfp);
+            
+            backward::StackTrace st;
+            st.load_here(32);
+            backward::Printer p;
+            p.print(st);
 
             throw std::runtime_error(std::string("Error processing variable"));
         }
@@ -696,8 +626,10 @@ PYBIND11_MODULE(libpymatio, m) {
     
     m.def("loadmat", &loadmat, "Load a MAT file",
           py::arg("filename"),
-          py::arg("simplify_cells") = false
-    );
+          py::pos_only(),
+          py::arg("simplify_cells") = false,
+          py::arg("debug_log_enabled") = false
+        );
 
     m.def("savemat", &savemat, "Save variables to a MAT file",
           py::arg("filename"),

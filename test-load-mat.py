@@ -1,17 +1,29 @@
 # %%
+import os
+import time
 from types import NoneType
-import pymatio as pm
+
 import mat73
 import numpy as np
-import os
+
+import pymatio as pm
+
 # %%
 os.system("clear")
+
+def is_iterable(a):
+    return isinstance(a, (list, tuple, set, frozenset, np.ndarray))
 
 def compare_maybe_array(a, b):
     if {type(a), type(b)} == {np.ndarray, NoneType}:
         if a is None: return b.size == 0
         if b is None: return a.size == 0
         return False
+    
+    if is_iterable(a) and not isinstance(b, np.ndarray) and len(a) == 1:
+        return a[0] == b
+    if is_iterable(b) and not isinstance(a, np.ndarray) and len(b) == 1:
+        return a == b[0]
 
     if isinstance(a, np.ndarray) and isinstance(b, np.ndarray):
         # print('cmp', a, b)
@@ -43,21 +55,18 @@ def compare_mats(mat1, mat2, path=""):
                 print(f"字段 '{path}{key}' 在 mat_from_mat73 中不存在")
             else:
                 compare_mats(mat1[key], mat2[key], f"{path}{key}.")
-    elif isinstance(mat1, (list, tuple, np.ndarray)) and isinstance(mat2, (list, tuple, np.ndarray)):
+    elif is_iterable(mat1) and is_iterable(mat2):
         if len(mat1) != len(mat2):
             print(f"列表长度不一致: {path[:-1]}")
         else:
             for i, (item1, item2) in enumerate(zip(mat1, mat2)):
                 compare_mats(item1, item2, f"{path}[{i}].")
-    elif not isinstance(mat1, type(mat2)):
-        if any(type(m) in (float, int, bool, np.bool, np.float64, np.uint8) for m in (mat1, mat2)):
-            return mat1 == mat2
-        elif mat1 is None and isinstance(mat2, np.ndarray) and mat2.size == 0:
-            return True
-        elif mat2 is None and isinstance(mat1, np.ndarray) and mat1.size == 0:
-            return True
-        else:
-            print(f"类型不一致: {path[:-1]}, `{mat1}` <-> `{mat2}` | {type(mat1)} - {type(mat2)}")
+    elif any(type(m) in (float, int, bool, np.bool, np.float64, np.uint8) for m in (mat1, mat2)):
+        return mat1 == mat2
+    elif mat1 is None and isinstance(mat2, np.ndarray) and mat2.size == 0:
+        return True
+    elif mat2 is None and isinstance(mat1, np.ndarray) and mat1.size == 0:
+        return True
     elif not compare_maybe_array(mat1, mat2):
         print(f"值不一致: {path[:-1]} `{mat1}` <-> `{mat2}`")
         
@@ -65,7 +74,9 @@ def compare_mats(mat1, mat2, path=""):
 p = '/home/myuan/C052-inj/C052-217-P0.ntp'
 # p = '/mnt/90-connectome/test_data.mat'
 # p = '/mnt/90-connectome/test_data_73.mat'
+t0 = time.time()
 mat_from_pm = pm.loadmat(p, simplify_cells=True)
+t1 = time.time()
 
 try:
     mat_from_mat73 = mat73.loadmat(p)
@@ -74,10 +85,18 @@ try:
 except Exception as e:
     import scipy.io as scio
     mat_from_mat73 = (scio.loadmat(p, simplify_cells=True, chars_as_strings=True))
+t2 = time.time()
 
-compare_mats(mat_from_pm, mat_from_mat73)
-# print(mat_from_pm['testStruct']['cellArrayMul'])
-# print(mat_from_mat73['testStruct']['cellArrayMul'])
+print('', flush=True)
+
+print(f'pm.loadmat: {t1-t0:.4f}s')
+print(f'mat73.loadmat: {t2-t1:.4f}s')
+
+# compare_mats(mat_from_pm, mat_from_mat73)
+# print('---'*30)
+# print(mat_from_pm['cf']['textinfo'])
+# print('---'*30)
+# print(mat_from_mat73['cf']['textinfo'])
 # print(mat_from_pm, mat_from_mat73, sep='\n\n')
 # %%
 # %%

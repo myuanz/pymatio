@@ -9,6 +9,7 @@ on:
       - '**.h'
       - '**.c'
       - 'xmake.lua'
+      - 'CMakeLists.txt'
   pull_request:
     paths:
       - '**.toml'
@@ -17,6 +18,7 @@ on:
       - '**.h'
       - '**.c'
       - 'xmake.lua'
+      - 'CMakeLists.txt'
   workflow_call:
 
 jobs:

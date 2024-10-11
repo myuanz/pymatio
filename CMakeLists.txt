@@ -3,8 +3,22 @@ cmake_minimum_required(VERSION 3.18...3.27 FATAL_ERROR)
 # <include CPM and packages>-----------------------------
 include(cmake/CPM.cmake)
 
+
+CPMAddPackage(
+  NAME szip
+  URL "https://docs.hdfgroup.org/archive/support/ftp/lib-external/szip/2.1.1/src/szip-2.1.1.tar.gz"
+  OPTIONS
+    "SZIP_ENABLE_ENCODING ON"
+    # "BUILD_SHARED_LIBS OFF"
+)
 CPMAddPackage("gh:fmtlib/fmt#11.0.2")
-CPMAddPackage("gh:madler/zlib#v1.3.1")
+CPMAddPackage(
+  NAME zlib
+  URL "https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz"
+  OPTIONS "ZLIB_BUILD_TESTS OFF"
+  OPTIONS "ZLIB_BUILD_EXAMPLES OFF"
+)
+
 CPMAddPackage("gh:HDFGroup/hdf5#hdf5_1.14.5")
 CPMAddPackage("gh:tbeu/matio#v1.5.27")
 CPMAddPackage("gh:bombela/backward-cpp#v1.6")
@@ -59,7 +73,6 @@ if (NOT SKBUILD)
 endif()
 
 # Configure and make available zlib
-FetchContent_MakeAvailable(zlib)
 
 # Configure HDF5
 set(HDF5_BUILD_SHARED_LIBS OFF CACHE BOOL "Build Shared Libraries" FORCE)
@@ -81,7 +94,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 nanobind_add_module(libpymatio NB_STATIC src/pymatio.cpp)
 
-target_link_libraries(libpymatio PRIVATE fmt zlib hdf5 matio)
+target_link_libraries(libpymatio PRIVATE fmt zlib szip hdf5 matio)
 
 target_compile_definitions(libpymatio PRIVATE UNICODE)
 if(MSVC)

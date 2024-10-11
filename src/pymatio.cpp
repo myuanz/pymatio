@@ -1,6 +1,10 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+
+#include <nanobind/stl/tuple.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
+
 #include <matio.h>
 #include <string>
 #include <vector>
@@ -11,12 +15,12 @@
 #include <cstring>
 #include <fmt/format.h>
 #include <iostream>
-#include <backward.hpp>
 
-#include "matio_private.h" // 添加这行，确保包含了完整的 matvar_internal 定义
+#include "matio_private.h"
 #include "matio.h"
+#include "strides_utils.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 
 static bool DEBUG_LOG_ENABLED = false;
@@ -83,7 +87,7 @@ std::string string_to_utf8(int string_type, const std::string& input) {
     }
 }
 // Helper function to convert matvar_t to Python object
-py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells);
+nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells);
 
 std::string combine_var_type(matvar_t* matvar) {
     const char *data_type_desc[25] = {"Unknown",
@@ -132,116 +136,124 @@ std::string combine_var_type(matvar_t* matvar) {
     return "class type: " + std::string(class_type_desc[matvar->class_type]) + " | data type: " + std::string(data_type_desc[matvar->data_type]);
 }
 
-py::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
+nb::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
     if(!matvar->data) {
-        return py::none();
+        return nb::none();
     }
 
-    // Calculate the total number of elements
     size_t num_elements = 1;
     for(int i = 0; i < matvar->rank; ++i) {
         num_elements *= matvar->dims[i];
     }
 
-    // Determine the NumPy dtype and format descriptor
-    py::dtype np_dtype;
+    bool can_simplify = simplify_cells && 
+                        (matvar->rank == 2) && 
+                        (matvar->dims[0] == 1 || matvar->dims[1] == 1);
+
+    nb::dlpack::dtype np_dtype;
     size_t element_size;
 
     switch(matvar->data_type) {
         case MAT_T_DOUBLE:
-            np_dtype = py::dtype::of<double>();
+            np_dtype = nb::dtype<double>();
             element_size = sizeof(double);
             break;
         case MAT_T_SINGLE:
-            np_dtype = py::dtype::of<float>();
+            np_dtype = nb::dtype<float>();
             element_size = sizeof(float);
             break;
         case MAT_T_INT8:
-            np_dtype = py::dtype::of<int8_t>();
+            np_dtype = nb::dtype<int8_t>();
             element_size = sizeof(int8_t);
             break;
         case MAT_T_UINT8:
-            np_dtype = py::dtype::of<uint8_t>();
+            np_dtype = nb::dtype<uint8_t>();
             element_size = sizeof(uint8_t);
             if (matvar->isLogical) {
-                np_dtype = py::dtype::of<bool>();
+                np_dtype = nb::dtype<bool>();
             }
             break;
         case MAT_T_INT16:
-            np_dtype = py::dtype::of<int16_t>();
+            np_dtype = nb::dtype<int16_t>();
             element_size = sizeof(int16_t);
             break;
         case MAT_T_UINT16:
-            np_dtype = py::dtype::of<uint16_t>();
+            np_dtype = nb::dtype<uint16_t>();
             element_size = sizeof(uint16_t);
             break;
         case MAT_T_INT32:
-            np_dtype = py::dtype::of<int32_t>();
+            np_dtype = nb::dtype<int32_t>();
             element_size = sizeof(int32_t);
             break;
         case MAT_T_UINT32:
-            np_dtype = py::dtype::of<uint32_t>();
+            np_dtype = nb::dtype<uint32_t>();
             element_size = sizeof(uint32_t);
             break;
         case MAT_T_INT64:
-            np_dtype = py::dtype::of<int64_t>();
+            np_dtype = nb::dtype<int64_t>();
             element_size = sizeof(int64_t);
             break;
         case MAT_T_UINT64:
-            np_dtype = py::dtype::of<uint64_t>();
+            np_dtype = nb::dtype<uint64_t>();
             element_size = sizeof(uint64_t);
             break;
         default:
             throw std::runtime_error("Unsupported MAT data type: " + std::to_string(matvar->data_type));
     }
-    if (simplify_cells) {
-        if (num_elements == 1) {
-            switch(matvar->data_type) {
-                case MAT_T_DOUBLE:
-                    return py::cast(static_cast<double*>(matvar->data)[0]);
-                case MAT_T_SINGLE:
-                    return py::cast(static_cast<float*>(matvar->data)[0]);
-                case MAT_T_INT8:
-                    return py::cast(static_cast<int8_t*>(matvar->data)[0]);
-                case MAT_T_INT16:
-                    return py::cast(static_cast<int16_t*>(matvar->data)[0]);
-                case MAT_T_INT32:
-                    return py::cast(static_cast<int32_t*>(matvar->data)[0]);
-                case MAT_T_INT64:
-                    return py::cast(static_cast<int64_t*>(matvar->data)[0]);
-                case MAT_T_UINT8:
-                    if (matvar->isLogical) {
-                        return py::cast(static_cast<uint8_t*>(matvar->data)[0] != 0);
-                    } else {
-                        return py::cast(static_cast<uint8_t*>(matvar->data)[0]);
-                    }
+    if (can_simplify && num_elements == 1) {
+        switch(matvar->data_type) {
+            case MAT_T_DOUBLE:
+                return nb::cast(static_cast<double*>(matvar->data)[0]);
+            case MAT_T_SINGLE:
+                return nb::cast(static_cast<float*>(matvar->data)[0]);
+            case MAT_T_INT8:
+                return nb::cast(static_cast<int8_t*>(matvar->data)[0]);
+            case MAT_T_INT16:
+                return nb::cast(static_cast<int16_t*>(matvar->data)[0]);
+            case MAT_T_INT32:
+                return nb::cast(static_cast<int32_t*>(matvar->data)[0]);
+            case MAT_T_INT64:
+                return nb::cast(static_cast<int64_t*>(matvar->data)[0]);
+            case MAT_T_UINT8:
+                if (matvar->isLogical) {
+                    return nb::cast(static_cast<uint8_t*>(matvar->data)[0] != 0);
+                } else {
+                    return nb::cast(static_cast<uint8_t*>(matvar->data)[0]);
+                }
 
-                case MAT_T_UINT16:
-                    return py::cast(static_cast<uint16_t*>(matvar->data)[0]);
-                case MAT_T_UINT32:
-                    return py::cast(static_cast<uint32_t*>(matvar->data)[0]);
-                case MAT_T_UINT64:
-                    return py::cast(static_cast<uint64_t*>(matvar->data)[0]);
-                default:
-                    throw std::runtime_error("Unsupported MAT data type: " + std::to_string(matvar->data_type));
-            }
+            case MAT_T_UINT16:
+                return nb::cast(static_cast<uint16_t*>(matvar->data)[0]);
+            case MAT_T_UINT32:
+                return nb::cast(static_cast<uint32_t*>(matvar->data)[0]);
+            case MAT_T_UINT64:
+                return nb::cast(static_cast<uint64_t*>(matvar->data)[0]);
+            default:
+                throw std::runtime_error("Unsupported MAT data type: " + std::to_string(matvar->data_type));
         }
     }
-    // Prepare dimensions and strides
+
     std::vector<ssize_t> shape = {};
+    ssize_t rank = matvar->rank;
+
     for (int i = 0; i < matvar->rank; ++i) {
-        if (matvar->dims[i] == 1 && simplify_cells) {
+        if (matvar->dims[i] == 1 && can_simplify) {
+            rank --;
             continue;
         }
         shape.push_back(static_cast<ssize_t>(matvar->dims[i]));
     }
-    std::vector<ssize_t> strides = py::detail::f_strides(shape, element_size);
 
-    auto arr = py::array(np_dtype, shape, strides, matvar->data);
-    return arr;
+    auto arr = nb::ndarray<nb::numpy, nb::f_contig>(
+        matvar->data,
+        rank, 
+        reinterpret_cast<size_t*>(shape.data()), 
+        {}, {}, 
+        np_dtype
+    );
+    return arr.cast();
 }
 
-py::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cells) {
+nb::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cells) {
     if (!matvar || matvar->class_type != MAT_C_CELL) {
         throw std::runtime_error("Invalid matvar or not a cell array");
     }
@@ -277,19 +289,25 @@ py::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cell
         return matvar_to_pyobject(Mat_VarGetCell(matvar, 0), indent + 2, simplify_cells);
     }
 
-    std::vector<ssize_t> strides = py::detail::f_strides(shape, py::dtype("O").itemsize());
-    py::array cell_array = py::array(py::dtype("O"), shape, strides);
+    nb::module_ np = nb::module_::import_("numpy");
+
+    nb::object cell_array = np.attr("empty")(
+        shape,
+        nb::arg("dtype") = np.attr("object_"),
+        nb::arg("order") = "F"
+    );
+
     matvar_t** cells = Mat_VarGetCellsLinear(matvar, 0, 1, total_elements);
-    py::array cell_array_reshaped = cell_array.attr("ravel")("F");
+    auto cell_array_reshaped = cell_array.attr("ravel")("F");
 
     for (size_t i = 0; i < total_elements; ++i) {
-        py::object obj;
+        nb::object obj;
         debug_log_with_indent("set item {:d}", indent, i);
 
         if (cells[i]) {
             obj = matvar_to_pyobject(cells[i], indent + 2, simplify_cells);
         } else {
-            // obj = py::none();
+            // obj = nb::none();
             // the default value of cell is empty array, so set it to empty is not necessary
         }
         cell_array_reshaped.attr("__setitem__")(i, obj);
@@ -298,9 +316,9 @@ py::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cell
 }
 
 // Function to convert matvar_t to Python object
-py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells = false) {
+nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells = false) {
     if(matvar == nullptr) {
-        return py::none();
+        return nb::none();
     }
 
     debug_log_with_indent("matvar {:s}", indent, combine_var_type(matvar).c_str());
@@ -318,9 +336,9 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
         case MAT_C_UINT64:
             return handle_numeric(matvar, simplify_cells);
         case MAT_C_EMPTY:
-            return py::none();
+            return nb::none();
         case MAT_C_STRUCT: {
-            py::dict struct_dict;
+            nb::dict struct_dict;
             if(!matvar->internal) {
                 throw std::runtime_error("Malformed MAT_C_STRUCT variable: " + std::string(matvar->name));
             }
@@ -333,29 +351,17 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
                 if(field_var) {
                     struct_dict[field_name] = matvar_to_pyobject(field_var, indent + 2, simplify_cells);
                 } else {
-                    struct_dict[field_name] = py::none();
+                    struct_dict[field_name] = nb::none();
                 }
             }
             return struct_dict;
         }
         case MAT_C_CELL: {
             return matvar_to_numpy_cell(matvar, indent, simplify_cells);
-
-            py::list cell_list;
-            matvar_t** cells = static_cast<matvar_t**>(matvar->data);
-            debug_log_with_indent("matvar->dims[0]: {:d}, matvar->dims[1]: {:d}", indent, matvar->dims[0], matvar->dims[1]);
-            for(size_t i = 0; i < matvar->dims[0] * matvar->dims[1]; ++i) {
-                if(cells[i]) {
-                    cell_list.append(matvar_to_pyobject(cells[i], indent + 2, simplify_cells));
-                } else {
-                    cell_list.append(py::none());
-                }
-            }
-            return cell_list;
         }
         case MAT_C_CHAR: {
             if(!matvar->data) {
-                return py::str("");
+                return nb::str("");
             }
 
             std::string raw_str(static_cast<char*>(matvar->data), matvar->nbytes);
@@ -367,7 +373,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
             if(endpos != std::string::npos) {
                 utf8_str = utf8_str.substr(0, endpos + 1);
             }
-            return py::str(utf8_str);
+            return nb::str(utf8_str.c_str());
         }
         case MAT_C_OPAQUE: {
             throw std::runtime_error("Unsupported MAT class: " + std::to_string(matvar->class_type));
@@ -378,7 +384,7 @@ py::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
 }
 
 // Function to load MAT file
-py::dict loadmat(const std::string& filename, bool simplify_cells = false, bool debug_log_enabled = false) {
+nb::dict loadmat(const std::string& filename, bool simplify_cells = false, bool debug_log_enabled = false) {
     DEBUG_LOG_ENABLED = debug_log_enabled || std::getenv("PYMATIO_DEBUG") != nullptr;
 
     debug_log("loadmat: {}", filename);
@@ -389,7 +395,7 @@ py::dict loadmat(const std::string& filename, bool simplify_cells = false, bool 
     }
 
     matvar_t* matvar;
-    py::dict mat_dict;
+    nb::dict mat_dict;
 
     while((matvar = Mat_VarReadNext(matfp)) != nullptr) {
         try {
@@ -401,10 +407,10 @@ py::dict loadmat(const std::string& filename, bool simplify_cells = false, bool 
             Mat_VarFree(matvar);
             Mat_Close(matfp);
             
-            backward::StackTrace st;
-            st.load_here(32);
-            backward::Printer p;
-            p.print(st);
+            // backward::StackTrace st;
+            // st.load_here(32);
+            // backward::Printer p;
+            // p.print(st);
 
             throw std::runtime_error(std::string("Error processing variable"));
         }
@@ -415,225 +421,25 @@ py::dict loadmat(const std::string& filename, bool simplify_cells = false, bool 
     return mat_dict;
 }
 
-// Helper function to convert Python object to matvar_t
-matvar_t* pyobject_to_matvar(const std::string& name, py::object obj);
-
-// Helper function to handle numeric data for savemat
-matvar_t* handle_numeric_save(const std::string& name, py::array& array) {
-    matio_classes class_type;
-    matio_types data_type;
-
-    // Determine the MAT class and type based on NumPy dtype
-    if(array.dtype().is(py::dtype::of<double>())) {
-        class_type = MAT_C_DOUBLE;
-        data_type = MAT_T_DOUBLE;
-    }
-    else if(array.dtype().is(py::dtype::of<float>())) {
-        class_type = MAT_C_SINGLE;
-        data_type = MAT_T_SINGLE;
-    }
-    else if(array.dtype().is(py::dtype::of<int8_t>())) {
-        class_type = MAT_C_INT8;
-        data_type = MAT_T_INT8;
-    }
-    else if(array.dtype().is(py::dtype::of<uint8_t>())) {
-        class_type = MAT_C_UINT8;
-        data_type = MAT_T_UINT8;
-    }
-    else if(array.dtype().is(py::dtype::of<int16_t>())) {
-        class_type = MAT_C_INT16;
-        data_type = MAT_T_INT16;
-    }
-    else if(array.dtype().is(py::dtype::of<uint16_t>())) {
-        class_type = MAT_C_UINT16;
-        data_type = MAT_T_UINT16;
-    }
-    else if(array.dtype().is(py::dtype::of<int32_t>())) {
-        class_type = MAT_C_INT32;
-        data_type = MAT_T_INT32;
-    }
-    else if(array.dtype().is(py::dtype::of<uint32_t>())) {
-        class_type = MAT_C_UINT32;
-        data_type = MAT_T_UINT32;
-    }
-    else if(array.dtype().is(py::dtype::of<int64_t>())) {
-        class_type = MAT_C_INT64;
-        data_type = MAT_T_INT64;
-    }
-    else if(array.dtype().is(py::dtype::of<uint64_t>())) {
-        class_type = MAT_C_UINT64;
-        data_type = MAT_T_UINT64;
-    }
-    else {
-        throw std::runtime_error("Unsupported NumPy dtype for numeric array: '" + std::string(1, array.dtype().char_()) + "'");
-    }
-
-    // Prepare dimensions
-    std::vector<size_t> dims(array.ndim());
-    for(size_t i = 0; i < array.ndim(); ++i) {
-        dims[i] = array.shape(i);
-    }
-
-    matvar_t* matvar = Mat_VarCreate(name.c_str(), class_type, data_type, static_cast<int>(array.ndim()), dims.data(), array.data(), 0);
-    if(matvar == nullptr) {
-        throw std::runtime_error("Failed to create MAT variable for numeric array: " + name);
-    }
-
-    return matvar;
-}
-
-// Function to convert Python object to matvar_t
-matvar_t* pyobject_to_matvar(const std::string& name, py::object obj) {
-    if(py::isinstance<py::array>(obj)) {
-        py::array array = py::cast<py::array>(obj);
-        if(array.dtype().is(py::dtype::of<std::complex<double>>())) {
-            throw std::runtime_error("Complex type is not supported");
-        }
-        else {
-            // Handle real numeric arrays
-            return handle_numeric_save(name, array);
-        }
-    }
-    else if(py::isinstance<py::dict>(obj)) {
-        py::dict dict = py::cast<py::dict>(obj);
-        std::vector<const char*> field_names;
-        std::vector<matvar_t*> fields;
-
-        for(auto item : dict) {
-            std::string field_name = py::str(item.first);
-            field_names.push_back(strdup(field_name.c_str())); // To be freed later
-            matvar_t* field_var = pyobject_to_matvar(field_name, pybind11::reinterpret_borrow<pybind11::object>(item.second));
-
-            if(field_var == nullptr) {
-                // Free previously allocated memory
-                for(auto fn : field_names) free((void*)fn);
-                for(auto fv : fields) Mat_VarFree(fv);
-                throw std::runtime_error("Unsupported Python object type in struct field: " + field_name);
-            }
-            fields.push_back(field_var);
-        }
-
-        size_t num_fields = field_names.size();
-        std::vector<const char*> c_field_names(num_fields);
-        for(size_t i = 0; i < num_fields; ++i) {
-            c_field_names[i] = field_names[i];
-        }
-
-        size_t dims[2] = {1, 1};
-        matvar_t* matvar = Mat_VarCreateStruct(name.c_str(), 2, dims, c_field_names.data(), num_fields);
-        if(matvar == nullptr) {
-            for(auto fn : field_names) free((void*)fn);
-            for(auto fv : fields) Mat_VarFree(fv);
-            throw std::runtime_error("Failed to create MAT struct variable: " + name);
-        }
-
-        for(size_t i = 0; i < num_fields; ++i) {
-            if(Mat_VarSetStructFieldByName(matvar, c_field_names[i], 0, fields[i]) != 0) {
-                Mat_VarFree(matvar);
-                for(auto fn : field_names) free((void*)fn);
-                for(auto fv : fields) Mat_VarFree(fv);
-                throw std::runtime_error("Failed to set struct field: " + std::string(c_field_names[i]));
-            }
-            // Ownership of fields[i] is transferred to matvar
-        }
-
-        // Free allocated field names
-        for(auto fn : field_names) free((void*)fn);
-
-        return matvar;
-    }
-    else if(py::isinstance<py::list>(obj)) {
-        py::list list = py::cast<py::list>(obj);
-        size_t num_elements = list.size();
-        size_t dims[2] = {1, num_elements};
-        matvar_t* matvar = Mat_VarCreate(name.c_str(), MAT_C_CELL, MAT_T_CELL, 2, dims, NULL, 0);
-        if(matvar == nullptr) {
-            throw std::runtime_error("Failed to create MAT cell array variable: " + name);
-        }
-
-        for(size_t i = 0; i < num_elements; ++i) {
-            py::object item = list[i];
-            matvar_t* cell_var = pyobject_to_matvar("", item); // Empty name for cell
-            if(cell_var == nullptr) {
-                Mat_VarFree(matvar);
-                throw std::runtime_error("Unsupported Python object type in cell array.");
-            }
-            if(Mat_VarSetCell(matvar, i, cell_var) != 0) {
-                Mat_VarFree(cell_var);
-                Mat_VarFree(matvar);
-                throw std::runtime_error("Failed to set cell array element at index: " + std::to_string(i));
-            }
-        }
-
-        return matvar;
-    }
-    else if(py::isinstance<py::str>(obj)) {
-        std::string str = py::str(obj);
-        size_t dims[2] = {1, str.size()};
-        matvar_t* matvar = Mat_VarCreate(name.c_str(), MAT_C_CHAR, MAT_T_UINT8, 2, dims, (void*)str.c_str(), 0);
-        if(matvar == nullptr) {
-            throw std::runtime_error("Failed to create MAT char variable: " + name);
-        }
-        return matvar;
-    }
-    else {
-        throw std::runtime_error("Unsupported Python object type for MAT variable: " + name);
-    }
-}
-
-// Function to save MAT file
-void savemat(const std::string& filename, py::dict dict) {
-    mat_t* matfp = Mat_CreateVer(filename.c_str(), NULL, MAT_FT_DEFAULT);
-    if(matfp == nullptr) {
-        throw std::runtime_error("Failed to create MAT file: " + filename);
-    }
-
-    for(auto item : dict) {
-        std::string var_name = py::str(item.first);
-        py::object obj = py::reinterpret_borrow<py::object>(item.second);
-        matvar_t* matvar = nullptr;
-
-        try {
-            matvar = pyobject_to_matvar(var_name, obj);
-        } catch(const std::exception& e) {
-            Mat_Close(matfp);
-            throw std::runtime_error(std::string("Error converting Python object to MAT variable for '") + var_name + "': " + e.what());
-        }
-
-        if(Mat_VarWrite(matfp, matvar, MAT_COMPRESSION_ZLIB) != 0) {
-            Mat_VarFree(matvar);
-            Mat_Close(matfp);
-            throw std::runtime_error("Failed to write MAT variable: " + var_name);
-        }
-
-        Mat_VarFree(matvar);
-    }
-
-    Mat_Close(matfp);
-    return;
-}
-
-pybind11::tuple get_library_version() {
+nb::tuple get_library_version() {
     int version[3];
     Mat_GetLibraryVersion(version, version + 1, version + 2);
-    pybind11::tuple v(3);
-    for (int i = 0; i < 3; i++)
-        v[i] = version[i];
+    nb::tuple v = nb::make_tuple(version[0], version[1], version[2]);
     return v;
 }
 
-PYBIND11_MODULE(libpymatio, m) {
+NB_MODULE(libpymatio, m) {
     
     m.def("loadmat", &loadmat, "Load a MAT file",
-          py::arg("filename"),
-          py::pos_only(),
-          py::arg("simplify_cells") = false,
-          py::arg("debug_log_enabled") = false
+          nb::arg("filename"),
+          nb::kw_only(),
+          nb::arg("simplify_cells") = false,
+          nb::arg("debug_log_enabled") = false
         );
 
-    m.def("savemat", &savemat, "Save variables to a MAT file",
-          py::arg("filename"),
-          py::arg("dict"));
+    // m.def("savemat", &savemat, "Save variables to a MAT file",
+    //       nb::arg("filename"),
+    //       nb::arg("dict"));
 // pybind11::enum_<matio::MatAcc>(m, "MatAcc", "MAT file access types.")
 //     .value("RDONLY", matio::MatAcc::RDONLY, "Read only file access.")
 //     .value("RDWR", matio::MatAcc::RDWR, "Read/Write file access.")
@@ -740,12 +546,12 @@ PYBIND11_MODULE(libpymatio, m) {
 //     .def_property("real", &matio::MatComplexSplitT::get_real, &matio::MatComplexSplitT::set_real, "Pointer to the real part.")
 //     .def_property("imag", &matio::MatComplexSplitT::get_imag, &matio::MatComplexSplitT::set_imag, "Pointer to the imaginary part.");
 m
-    .def("get_library_version", &get_library_version, pybind11::return_value_policy::move, "Get the version of the library.");
-//     .def("log_init", &matio::log_init, "Initializes the logging system.")
-//     .def("set_debug", &matio::set_debug, "Set debug parameter.")
-//     .def("critical", &matio::critical, "Logs a Critical message and returns to the user.")
-//     .def("message", &matio::message, "Log a message unless silent.")
-//     .def("help", &matio::help, "Prints a help string to stdout and exits with status EXIT_SUCCESS (typically 0).")
+    .def("get_library_version", &get_library_version, "Get the version of the library.")
+    // .def("log_init", &Mat_LogInit, "Initializes the logging system.")
+    // .def("set_debug", &Mat_SetDebug, "Set debug parameter.")
+    // .def("critical", &Mat_Critical, "Logs a Critical message and returns to the user.")
+    // .def("message", &Mat_Message, "Log a message unless silent.")
+    // .def("help", &Mat_Help, "Prints a help string to stdout and exits with status EXIT_SUCCESS (typically 0).")
 //     .def("create_ver", &matio::create_ver, pybind11::return_value_policy::automatic_reference, "Creates a new Matlab MAT file.")
 //     .def("open", &matio::open, pybind11::return_value_policy::automatic_reference, "Opens an existing Matlab MAT file.")
 //     .def("close", &matio::close, "Closes an open Matlab MAT file.")
@@ -754,7 +560,7 @@ m
 //     .def("var_free", &matio::var_free, "Frees all the allocated memory associated with the structure.")
 //     .def("var_write", &matio::var_write, "Writes the given MAT variable to a MAT file.")
 //     .def("var_read_info", &matio::var_read_info, pybind11::return_value_policy::automatic_reference, "Reads the information of a variable with the given name from a MAT file.")
-//     .def("var_print", &matio::var_print, "Prints the variable information.")
+    // .def("var_print", &Mat_VarPrint, "Prints the variable information.")
 //     .def("calc_subscripts2", &matio::calc_subscripts2, pybind11::return_value_policy::move, "Calculate a set of subscript values from a single(linear) subscript.")
 //     .def("calc_single_subscript2", &matio::calc_single_subscript2, pybind11::return_value_policy::move, "Calculate a single subscript from a set of subscript values.")
 //     .def("var_read", &matio::var_read, pybind11::return_value_policy::automatic_reference, "Reads the variable with the given name from a MAT file.")
@@ -779,4 +585,5 @@ m
 //     .def("get_filename", &matio::get_filename, "Gets the filename for the given MAT file.")
 //     .def("get_version", &matio::get_version, "Gets the version of the given MAT file.")
 //     .def("get_header", &matio::get_header, "Gets the header for the given MAT file.");
+;
 }

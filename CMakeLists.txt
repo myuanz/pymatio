@@ -9,6 +9,7 @@ CPMAddPackage("gh:HDFGroup/hdf5#hdf5_1.14.5")
 CPMAddPackage("gh:tbeu/matio#v1.5.27")
 CPMAddPackage("gh:bombela/backward-cpp#v1.6")
 
+set_target_properties(fmt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # </include CPM and packages>-----------------------------
 
 

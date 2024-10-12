@@ -159,19 +159,24 @@ CPMAddPackage(
   NAME ZLIB
   GITHUB_REPOSITORY madler/zlib
   GIT_TAG v1.3.1
+
+  OPTIONS
+  "ZLIB_BUILD_EXAMPLES OFF"
 )
 print_all_targets()
 print_target_properties(zlib)
 
 if (ZLIB_ADDED) 
   # target_include_directories(zlib PUBLIC ${ZLIB_BINARY_DIR})
+  set_target_properties(zlibstatic PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
   target_include_directories(zlibstatic PUBLIC ${ZLIB_BINARY_DIR})
   configure_file(${ZLIB_BINARY_DIR}/zconf.h ${ZLIB_SOURCE_DIR} COPYONLY)
 
   add_library(zlib-static ALIAS zlibstatic)
 endif()
 print_all_targets()
-print_target_properties(zlibstatic)
+print_target_properties(zlib-static)
 message(STATUS "ZLIB_SOURCE_DIR: ${ZLIB_SOURCE_DIR};${ZLIB_BINARY_DIR}")
 
 
@@ -193,16 +198,18 @@ CPMAddPackage(
     "H5_ZLIB_INCLUDE_DIRS ${ZLIB_SOURCE_DIR}"
     "H5_ZLIB_HEADER zlib.h"
     "HDF5_USE_ZLIB_STATIC ON"
-    "H5_ZLIB_STATIC_LIBRARY zlibstatic"
+    "H5_ZLIB_STATIC_LIBRARY zlib-static"
 
     "HDF5_EXTERNALLY_CONFIGURED ON"
 
     "HDF5_BUILD_STATIC_LIBS ON"
     "HDF5_BUILD_SHARED_LIBS OFF"
+    "CMAKE_POSITION_INDEPENDENT_CODE ON"
 )
 if(HDF5_ADDED)
   message("HDF5 added ${HDF5_LIBRARIES}")
   if(TARGET hdf5-static)
+    set_target_properties(hdf5-static PROPERTIES POSITION_INDEPENDENT_CODE ON)
     target_link_directories(hdf5-static INTERFACE ${HDF5_BINARY_DIR}/src)
   endif()
 
@@ -232,23 +239,29 @@ CPMAddPackage(
     "HDF5_USE_STATIC_LIBRARIES ON"
 
     "MATIO_SHARED OFF"
+    "CMAKE_POSITION_INDEPENDENT_CODE ON"
+
 )
 if (matio_ADDED)
+  set_target_properties(matio PROPERTIES POSITION_INDEPENDENT_CODE ON)
   target_link_libraries(matio PUBLIC ${HDF5_LIBRARY_NAME})
 endif()
 
 CPMAddPackage("gh:fmtlib/fmt#11.0.2")
-
-set_target_properties(fmt PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(fmt_ADDED)
+  set_target_properties(fmt PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
 # </include CPM and packages>-----------------------------
 
 
 target_link_libraries(libpymatio PRIVATE 
   fmt
-  zlibstatic
+  zlib-static
   ${HDF5_LIBRARY_NAME}
   matio
 )
+set_target_properties(libpymatio PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 print_target_properties(libpymatio)
 
 if (WIN32)
@@ -258,7 +271,7 @@ endif()
 target_compile_definitions(libpymatio PRIVATE UNICODE)
 
 
-set_target_properties(libpymatio PROPERTIES LINK_FLAGS "-static-libgcc -static-libstdc++")
+# set_target_properties(libpymatio PROPERTIES LINK_FLAGS "-static-libgcc -static-libstdc++")
 
 # 只安装 Python 模块
 install(TARGETS libpymatio DESTINATION .)

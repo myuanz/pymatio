@@ -93,7 +93,7 @@ if(Python_FOUND)
   message(STATUS "Python_INCLUDE_DIRS: ${Python_INCLUDE_DIRS}")
   
 endif()
-
+message("CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
@@ -164,12 +164,14 @@ print_all_targets()
 print_target_properties(zlib)
 
 if (ZLIB_ADDED) 
-  target_include_directories(zlib PUBLIC ${ZLIB_BINARY_DIR})
+  # target_include_directories(zlib PUBLIC ${ZLIB_BINARY_DIR})
   target_include_directories(zlibstatic PUBLIC ${ZLIB_BINARY_DIR})
   configure_file(${ZLIB_BINARY_DIR}/zconf.h ${ZLIB_SOURCE_DIR} COPYONLY)
+
+  add_library(zlib-static ALIAS zlibstatic)
 endif()
 print_all_targets()
-print_target_properties(zlib)
+print_target_properties(zlibstatic)
 message(STATUS "ZLIB_SOURCE_DIR: ${ZLIB_SOURCE_DIR};${ZLIB_BINARY_DIR}")
 
 
@@ -190,6 +192,10 @@ CPMAddPackage(
     # "ZLIB_LIBRARIES libz"
     "H5_ZLIB_INCLUDE_DIRS ${ZLIB_SOURCE_DIR}"
     "H5_ZLIB_HEADER zlib.h"
+    "HDF5_USE_ZLIB_STATIC ON"
+    "H5_ZLIB_STATIC_LIBRARY zlibstatic"
+
+    "HDF5_EXTERNALLY_CONFIGURED ON"
 
     "HDF5_BUILD_STATIC_LIBS ON"
     "HDF5_BUILD_SHARED_LIBS OFF"
@@ -225,8 +231,7 @@ CPMAddPackage(
     "HDF5_VERSION ${HDF5_VERSION_STRING}"
     "HDF5_USE_STATIC_LIBRARIES ON"
 
-    "MATIO_BUILD_STATIC_LIBS ON"
-    "MATIO_BUILD_SHARED_LIBS OFF"
+    "MATIO_SHARED OFF"
 )
 if (matio_ADDED)
   target_link_libraries(matio PUBLIC ${HDF5_LIBRARY_NAME})
@@ -240,9 +245,11 @@ set_target_properties(fmt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(libpymatio PRIVATE 
   fmt
+  zlibstatic
   ${HDF5_LIBRARY_NAME}
   matio
 )
+print_target_properties(libpymatio)
 
 if (WIN32)
   target_link_libraries(libpymatio PRIVATE)
@@ -258,7 +265,7 @@ install(TARGETS libpymatio DESTINATION .)
 
 # 明确不安装其他文件
 install(CODE "
-    file(REMOVE_RECURSE \${CMAKE_INSTALL_PREFIX}/include)
-    file(REMOVE_RECURSE \${CMAKE_INSTALL_PREFIX}/lib)
-    file(REMOVE_RECURSE \${CMAKE_INSTALL_PREFIX}/bin)
+  file(REMOVE_RECURSE \${CMAKE_INSTALL_PREFIX}/include)
+  file(REMOVE_RECURSE \${CMAKE_INSTALL_PREFIX}/lib)
+  file(REMOVE_RECURSE \${CMAKE_INSTALL_PREFIX}/bin)
 ")

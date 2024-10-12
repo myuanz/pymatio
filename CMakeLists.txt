@@ -210,6 +210,7 @@ if(HDF5_ADDED)
   message("HDF5 added ${HDF5_LIBRARIES}")
   if(TARGET hdf5-static)
     set_target_properties(hdf5-static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    target_link_libraries(hdf5-static PRIVATE zlib-static)
     target_link_directories(hdf5-static INTERFACE ${HDF5_BINARY_DIR}/src)
   endif()
 
@@ -244,7 +245,7 @@ CPMAddPackage(
 )
 if (matio_ADDED)
   set_target_properties(matio PROPERTIES POSITION_INDEPENDENT_CODE ON)
-  target_link_libraries(matio PUBLIC ${HDF5_LIBRARY_NAME})
+  target_link_libraries(matio PUBLIC ${HDF5_LIBRARY_NAME} zlib-static)
 endif()
 
 CPMAddPackage("gh:fmtlib/fmt#11.0.2")

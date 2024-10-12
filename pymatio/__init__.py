@@ -23,6 +23,8 @@ for target_dll in candidate_dlls:
         import traceback
         traceback.print_exc()
         raise
+else:
+    raise RuntimeError(f"Failed to load pymatio @ {candidate_dlls}")
 
 # from libpymatio import get_library_version
 from libpymatio import *

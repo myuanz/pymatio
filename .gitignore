@@ -18,3 +18,5 @@
 /libpymatio
 
 !.github
+
+/cpm-test

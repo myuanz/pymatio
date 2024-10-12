@@ -1,38 +1,89 @@
 cmake_minimum_required(VERSION 3.18...3.27 FATAL_ERROR)
 
 # <include CPM and packages>-----------------------------
-include(cmake/CPM.cmake)
 
+if(EXISTS "/host/home/myuan/.cache/CPM/")
+  set(CPM_SOURCE_CACHE "/host/home/myuan/.cache/CPM/")
+else()
+  set(CPM_SOURCE_CACHE $ENV{HOME}/.cache/CPM/)
+endif()
 
+message(STATUS "CPM_SOURCE_CACHE: ${CPM_SOURCE_CACHE}")
+
+include(${CMAKE_SOURCE_DIR}/cmake/CPM.cmake)
+
+CPMAddPackage("gh:madler/zlib@1.3.1")
+
+set(HDF5_VERSION_STRING "1.14.5")
 CPMAddPackage(
-  NAME szip
-  URL "https://docs.hdfgroup.org/archive/support/ftp/lib-external/szip/2.1.1/src/szip-2.1.1.tar.gz"
+  NAME HDF5
+  GITHUB_REPOSITORY HDFGroup/hdf5
+  GIT_TAG hdf5_1.14.5
   OPTIONS
-    "SZIP_ENABLE_ENCODING ON"
-    # "BUILD_SHARED_LIBS OFF"
+    "HDF5_ENABLE_Z_LIB_SUPPORT ON"
+    "HDF5_BUILD_TOOLS OFF"
+    "HDF5_BUILD_EXAMPLES OFF"
+    "HDF5_ENABLE_SZIP_ENCODING OFF"
+    "HDF5_ENABLE_SZIP_SUPPORT OFF"
 )
-CPMAddPackage("gh:fmtlib/fmt#11.0.2")
-CPMAddPackage(
-  NAME zlib
-  URL "https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz"
-  OPTIONS "ZLIB_BUILD_TESTS OFF"
-  OPTIONS "ZLIB_BUILD_EXAMPLES OFF"
-)
+if(HDF5_ADDED)
+  message("HDF5 added ${HDF5_LIBRARIES}")
+  target_link_directories(hdf5-static INTERFACE ${HDF5_BINARY_DIR}/src)
+  target_link_directories(hdf5-shared INTERFACE ${HDF5_BINARY_DIR}/src)
 
-CPMAddPackage("gh:HDFGroup/hdf5#hdf5_1.14.5")
-CPMAddPackage("gh:tbeu/matio#v1.5.27")
-CPMAddPackage("gh:bombela/backward-cpp#v1.6")
+  if(BUILD_SHARED_LIBS)
+    set(HDF5_LIBRARY_NAME hdf5-shared)
+  else()
+    set(HDF5_LIBRARY_NAME hdf5-static)
+  endif()
+  message("HDF5_LIBRARY_NAME: ${HDF5_LIBRARY_NAME}")
+
+
+endif()
+
+
+CPMAddPackage(
+  NAME matio
+  GITHUB_REPOSITORY tbeu/matio
+  GIT_TAG v1.5.27
+  OPTIONS
+    "MATIO_WITH_HDF5 ON"
+    "MATIO_WITH_ZLIB ON"
+    "MATIO_MAT73 ON"
+    "MATIO_DEFAULT_FILE_VERSION 5"
+    "HDF5_VERSION ${HDF5_VERSION_STRING}"
+)
+if (matio_ADDED)
+  target_link_libraries(matio PUBLIC hdf5-shared)
+endif()
+
+CPMAddPackage("gh:fmtlib/fmt#11.0.2")
 
 set_target_properties(fmt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # </include CPM and packages>-----------------------------
 
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_COMPILE_COMMANDS_OUTPUT_DIRECTORY .vscode)
 
 # <setup nanobind>-----------------------------
 set(DEV_MODULE Development)
-find_package(Python 3.8 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
+find_package(Python 3.8
+  REQUIRED COMPONENTS Interpreter Development.Module
+  OPTIONAL_COMPONENTS Development.SABIModule)
+
+if(Python_FOUND)
+  if(WIN32)
+    set(Python_LIBRARY ${Python_EXECUTABLE}/../libs)
+    set(Python_LIBRARIES ${Python_LIBRARY}/python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.lib)
+    link_directories(${Python_LIBRARY})
+
+  endif()
+  message(STATUS "Python_EXECUTABLE: ${Python_EXECUTABLE}")
+  message(STATUS "Python_LIBRARY: ${Python_LIBRARY}")
+  message(STATUS "Python_LIBRARIES: ${Python_LIBRARIES}")
+  message(STATUS "Python_INCLUDE_DIRS: ${Python_INCLUDE_DIRS}")
+  
+endif()
 
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
@@ -72,29 +123,16 @@ if (NOT SKBUILD)
   after editing C++ files.")
 endif()
 
-# Configure and make available zlib
-
-# Configure HDF5
-set(HDF5_BUILD_SHARED_LIBS OFF CACHE BOOL "Build Shared Libraries" FORCE)
-set(HDF5_BUILD_STATIC_LIBS ON CACHE BOOL "Build Static Libraries" FORCE)
-set(HDF5_ENABLE_Z_LIB_SUPPORT ON CACHE BOOL "Enable Zlib Filters" FORCE)
-set(HDF5_BUILD_TOOLS OFF CACHE BOOL "Build HDF5 Tools" FORCE)
-set(HDF5_BUILD_EXAMPLES OFF CACHE BOOL "Build HDF5 Library Examples" FORCE)
-
-# Configure matio
-set(MATIO_WITH_HDF5 ON CACHE BOOL "Enable HDF5 support" FORCE)
-set(MATIO_WITH_ZLIB ON CACHE BOOL "Enable Zlib support" FORCE)
-set(MATIO_MAT73 ON CACHE BOOL "Enable support for version 7.3 MAT files" FORCE)
-set(MATIO_DEFAULT_FILE_VERSION "5" CACHE STRING "Select what MAT file format version is used by default" FORCE)
-
-set(MATIO_SHARED OFF CACHE BOOL "Build shared library" FORCE)
-set(MATIO_STATIC ON CACHE BOOL "Build static library" FORCE)
-
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+link_directories(build)
+
 
 nanobind_add_module(libpymatio NB_STATIC src/pymatio.cpp)
 
-target_link_libraries(libpymatio PRIVATE fmt zlib szip hdf5 matio)
+target_link_libraries(libpymatio PRIVATE fmt ${HDF5_LIBRARY_NAME} matio)
+if (WIN32)
+  target_link_libraries(libpymatio PRIVATE)
+endif()
 
 target_compile_definitions(libpymatio PRIVATE UNICODE)
 if(MSVC)

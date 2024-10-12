@@ -1,4 +1,7 @@
 cmake_minimum_required(VERSION 3.18...3.27 FATAL_ERROR)
+# 设置默认构建类型为静态库
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
+set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
 
 # <include CPM and packages>-----------------------------
 
@@ -25,11 +28,19 @@ CPMAddPackage(
     "HDF5_BUILD_EXAMPLES OFF"
     "HDF5_ENABLE_SZIP_ENCODING OFF"
     "HDF5_ENABLE_SZIP_SUPPORT OFF"
+
+    "HDF5_BUILD_STATIC_LIBS ON"
+    "HDF5_BUILD_SHARED_LIBS OFF"
 )
 if(HDF5_ADDED)
   message("HDF5 added ${HDF5_LIBRARIES}")
-  target_link_directories(hdf5-static INTERFACE ${HDF5_BINARY_DIR}/src)
-  target_link_directories(hdf5-shared INTERFACE ${HDF5_BINARY_DIR}/src)
+  if(TARGET hdf5-static)
+    target_link_directories(hdf5-static INTERFACE ${HDF5_BINARY_DIR}/src)
+  endif()
+
+  if(BUILD_SHARED_LIBS)
+    target_link_directories(hdf5-shared INTERFACE ${HDF5_BINARY_DIR}/src)
+  endif()
 
   if(BUILD_SHARED_LIBS)
     set(HDF5_LIBRARY_NAME hdf5-shared)
@@ -37,8 +48,6 @@ if(HDF5_ADDED)
     set(HDF5_LIBRARY_NAME hdf5-static)
   endif()
   message("HDF5_LIBRARY_NAME: ${HDF5_LIBRARY_NAME}")
-
-
 endif()
 
 
@@ -52,9 +61,12 @@ CPMAddPackage(
     "MATIO_MAT73 ON"
     "MATIO_DEFAULT_FILE_VERSION 5"
     "HDF5_VERSION ${HDF5_VERSION_STRING}"
+
+    "MATIO_BUILD_STATIC_LIBS ON"
+    "MATIO_BUILD_SHARED_LIBS OFF"
 )
 if (matio_ADDED)
-  target_link_libraries(matio PUBLIC hdf5-shared)
+  target_link_libraries(matio PUBLIC ${HDF5_LIBRARY_NAME})
 endif()
 
 CPMAddPackage("gh:fmtlib/fmt#11.0.2")
@@ -129,7 +141,12 @@ link_directories(build)
 
 nanobind_add_module(libpymatio NB_STATIC src/pymatio.cpp)
 
-target_link_libraries(libpymatio PRIVATE fmt ${HDF5_LIBRARY_NAME} matio)
+target_link_libraries(libpymatio PRIVATE 
+  fmt
+  ${HDF5_LIBRARY_NAME}
+  matio
+)
+
 if (WIN32)
   target_link_libraries(libpymatio PRIVATE)
 endif()
@@ -139,4 +156,14 @@ if(MSVC)
     target_compile_options(libpymatio PRIVATE /utf-8)
 endif()
 
-install(TARGETS libpymatio LIBRARY DESTINATION lib)
+set_target_properties(libpymatio PROPERTIES LINK_FLAGS "-static-libgcc -static-libstdc++")
+
+# 只安装 Python 模块
+install(TARGETS libpymatio DESTINATION .)
+
+# 明确不安装其他文件
+install(CODE "
+    file(REMOVE_RECURSE \${CMAKE_INSTALL_PREFIX}/include)
+    file(REMOVE_RECURSE \${CMAKE_INSTALL_PREFIX}/lib)
+    file(REMOVE_RECURSE \${CMAKE_INSTALL_PREFIX}/bin)
+")

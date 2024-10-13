@@ -148,6 +148,14 @@ link_directories(build)
 
 
 nanobind_add_module(libpymatio FREE_THREADED STABLE_ABI NB_STATIC src/pymatio.cpp)
+nanobind_add_stub(
+  libpymatio-stub
+  MODULE libpymatio
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/__init__.pyi
+  PYTHON_PATH $<TARGET_FILE_DIR:libpymatio>
+  DEPENDS libpymatio
+  MARKER_FILE ${CMAKE_CURRENT_BINARY_DIR}/py.typed
+)
 
 set_target_properties(libpymatio PROPERTIES
   SUFFIX "${PYTHON_MODULE_EXTENSION}"
@@ -286,3 +294,10 @@ install(CODE "
   file(REMOVE_RECURSE \${CMAKE_INSTALL_PREFIX}/lib)
   file(REMOVE_RECURSE \${CMAKE_INSTALL_PREFIX}/bin)
 ")
+
+install(
+  FILES 
+    ${CMAKE_CURRENT_BINARY_DIR}/py.typed
+    ${CMAKE_CURRENT_BINARY_DIR}/pymatio.pyi
+  DESTINATION pymatio
+)

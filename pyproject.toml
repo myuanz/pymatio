@@ -29,7 +29,11 @@ Homepage = "https://github.com/myuanz/pymatio"
 # priority = "primary"
 
 [build-system]
-requires = ["scikit-build-core >=0.4.3", "nanobind >=1.3.2"]
+requires = [
+    "scikit-build-core >=0.4.3",
+    "nanobind >=1.3.2",
+    "typing_extensions; python_version < '3.11'"
+]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
@@ -42,7 +46,8 @@ sdist.include = [
     "tests/",
     "pyproject.toml",
     "CMakeLists.txt",
-    "README.md"
+    "README.md",
+    "README_en.md",
 ]
 
 # Setuptools-style build caching in a local directory

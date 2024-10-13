@@ -35,11 +35,12 @@ jobs:
       - uses: actions/checkout@v4
 
 
-      - uses: xmake-io/github-action-setup-xmake@v1
+      - uses: pypa/cibuildwheel@v2.21.3
         name: Build wheels
-        with:
-          xmake-version: latest
       - run: pipx run cibuildwheel==2.21.1
+
+      - name: Build SDist
+        run: python -m build --sdist --outdir dist
 
       - uses: actions/upload-artifact@v4
         with:
@@ -47,3 +48,16 @@ jobs:
           path: ./wheelhouse/*.whl
           retention-days: 7
 
+  make_sdist:
+    name: Make SDist
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build SDist
+      run: pipx run build --sdist
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: cibw-sdist
+        path: dist/*.tar.gz

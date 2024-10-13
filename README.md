@@ -47,7 +47,11 @@ Windows 通常没有自带的构建工具链, 你可以参考 [此页](https://l
 - [x] 编译扩展时自动处理虚拟环境
 - [x] 完成 loadmat
 - [ ] 完成 savemat
+- [ ] 自由线程 whl
 - [ ] 导入 scio 的测试和 mat73 的测试
 - [ ] 添加 types
 - [ ] 添加 benchmark
+  - [ ] With scio
+  - [ ] With mat73
+  - [ ] With Free-Thread
 

@@ -147,7 +147,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 link_directories(build)
 
 
-nanobind_add_module(libpymatio NB_STATIC src/pymatio.cpp)
+nanobind_add_module(libpymatio FREE_THREADED STABLE_ABI NB_STATIC src/pymatio.cpp)
 
 set_target_properties(libpymatio PROPERTIES
   SUFFIX "${PYTHON_MODULE_EXTENSION}"

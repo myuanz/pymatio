@@ -298,6 +298,6 @@ install(CODE "
 install(
   FILES 
     ${CMAKE_CURRENT_BINARY_DIR}/py.typed
-    ${CMAKE_CURRENT_BINARY_DIR}/pymatio.pyi
+    ${CMAKE_CURRENT_BINARY_DIR}/__init__.pyi
   DESTINATION pymatio
 )

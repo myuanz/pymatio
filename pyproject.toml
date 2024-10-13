@@ -1,6 +1,6 @@
 [project]
 name = "pymatio"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = [
     { name = "zhengmy", email = "zhengmy@ion.ac.cn"}

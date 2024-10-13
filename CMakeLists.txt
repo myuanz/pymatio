@@ -275,7 +275,7 @@ target_compile_definitions(libpymatio PRIVATE UNICODE)
 # set_target_properties(libpymatio PROPERTIES LINK_FLAGS "-static-libgcc -static-libstdc++")
 
 # 只安装 Python 模块
-install(TARGETS libpymatio DESTINATION ./pymatio)
+install(TARGETS libpymatio LIBRARY DESTINATION pymatio)
 
 # 明确不安装其他文件
 install(CODE "

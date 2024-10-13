@@ -85,13 +85,20 @@ if(Python_FOUND)
     set(Python_LIBRARY ${Python_INCLUDE_DIRS}/../libs)
     set(Python_LIBRARIES ${Python_LIBRARY}/python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.lib)
     link_directories(${Python_LIBRARY})
-
   endif()
+
   message(STATUS "Python_EXECUTABLE: ${Python_EXECUTABLE}")
   message(STATUS "Python_LIBRARY: ${Python_LIBRARY}")
   message(STATUS "Python_LIBRARIES: ${Python_LIBRARIES}")
   message(STATUS "Python_INCLUDE_DIRS: ${Python_INCLUDE_DIRS}")
   
+
+  # In some cases, the extension name (.so) may be lost, so specify it manually
+  execute_process(
+    COMMAND "${Python_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
+    OUTPUT_VARIABLE PYTHON_MODULE_EXTENSION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
 endif()
 message("CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -142,6 +149,9 @@ link_directories(build)
 
 nanobind_add_module(libpymatio NB_STATIC src/pymatio.cpp)
 
+set_target_properties(libpymatio PROPERTIES
+  SUFFIX "${PYTHON_MODULE_EXTENSION}"
+)
 
 # <include CPM and packages>-----------------------------
 
@@ -264,13 +274,6 @@ target_link_libraries(libpymatio PRIVATE
 set_target_properties(libpymatio PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 print_target_properties(libpymatio)
-
-if (WIN32)
-  target_link_libraries(libpymatio PRIVATE)
-endif()
-
-target_compile_definitions(libpymatio PRIVATE UNICODE)
-
 
 # set_target_properties(libpymatio PROPERTIES LINK_FLAGS "-static-libgcc -static-libstdc++")
 

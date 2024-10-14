@@ -26,7 +26,7 @@ print(pm.loadmat('file.mat'))
 ### 常规构建流程
 
 ```bash
-git clone https://github.com/myuanz/pymatio
+git clone https://github.com/myuanz/pymatio && cd pymatio
 pip install .
 ```
 
@@ -49,7 +49,7 @@ Windows 通常没有自带的构建工具链, 你可以参考 [此页](https://l
 - [ ] 完成 savemat
 - [ ] 自由线程 whl
 - [ ] 导入 scio 的测试和 mat73 的测试
-- [ ] 添加 types
+- [x] 添加 types
 - [ ] 添加 benchmark
   - [ ] With scio
   - [ ] With mat73

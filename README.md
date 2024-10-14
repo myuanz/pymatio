@@ -1,5 +1,9 @@
 [中文](./README.md) [English](./README_en.md)
 
+# pymatio
+
+快速、紧凑的 mat 文件读取器，在 2MiB 大小内完成 MAT5/MAT7.3 的读入，摆脱巨大的 scipy 和 h5py 依赖。基于 matio 的 Python 绑定。
+
 ## 背景
 
 Python 中始终没有一个一站式读取 mat 文件的库，mat5 总是依赖 scipy.io, mat7.3 总是依赖 h5py，h5py 直接读取 mat 文件又需要很多手动转换，有一个 mat73 转换，但是核心逻辑是纯 Python 写的，又非常慢。
@@ -30,9 +34,9 @@ git clone https://github.com/myuanz/pymatio && cd pymatio
 pip install .
 ```
 
-zlib、hdf5 等基础依赖将自动跨平台构建.
+zlib、hdf5 等基础依赖将自动下载并构建，无需系统预先安装.
 
-### 对于 Windows
+### Windows 编译工具链
 
 Windows 通常没有自带的构建工具链, 你可以参考 [此页](https://learn.microsoft.com/en-us/windows/dev-environment/rust/setup#install-visual-studio-recommended-or-the-microsoft-c-build-tools), 下载`Microsoft C++ Build Tools`, 按照图片示例构建推荐的工具链, 点击安装. 只要完成这一步就够了, 不需要再往下安装 Rust. 
 

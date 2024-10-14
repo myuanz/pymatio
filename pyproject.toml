@@ -7,9 +7,13 @@ authors = [
 ]
 
 readme = "README.md"
-# classifiers = [
-#     "License :: BSD-2-Clause"
-# ]
+classifiers = [
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: BSD 2-Clause License",
+]
 requires-python = '>=3.9,<3.13'
 
 [project.urls]

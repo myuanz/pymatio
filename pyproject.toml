@@ -1,7 +1,7 @@
 [project]
 name = "pymatio"
-version = "0.1.1"
-description = ""
+version = "0.1.3"
+description = "Fast, compact Python library for reading MAT5/MAT7.3 files using matio."
 authors = [
     { name = "zhengmy", email = "zhengmy@ion.ac.cn"}
 ]
@@ -14,7 +14,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: BSD 2-Clause License",
 ]
-requires-python = '>=3.9,<3.13'
+requires-python = '>=3.9, <3.13'
+dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/myuanz/pymatio"
@@ -75,3 +76,11 @@ linux.container-engine = "podman"
 
 [tool.cibuildwheel.macos.environment]
 MACOSX_DEPLOYMENT_TARGET = "10.14"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.3",
+]
+
+[tool.uv.workspace]
+members = ["test"]

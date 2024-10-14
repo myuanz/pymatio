@@ -20,18 +20,6 @@ dependencies = []
 [project.urls]
 Homepage = "https://github.com/myuanz/pymatio"
 
-# [tool.poetry.group.dev.dependencies]
-# setuptools = "^69.0.3"
-# pybind11 = "^2"
-# cibuildwheel = "^2.16.2"
-# pytest = "^7.4.3"
-# ipykernel = "^6.29.5"
-# tyro = "^0.8.11"
-
-# [[tool.poetry.source]]
-# name = "tsinghua"
-# url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-# priority = "primary"
 
 [build-system]
 requires = [

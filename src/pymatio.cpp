@@ -428,6 +428,134 @@ nb::tuple get_library_version() {
     return v;
 }
 
+matvar_t* pyobject_to_matvar(const std::string &name, const nb::object &obj) {
+    nb::module_ np = nb::module_::import_("numpy");
+
+    if (nb::isinstance<nb::str>(obj)) {
+        std::string s = nb::cast<std::string>(obj);
+        size_t dims[2] = {1, s.size()};
+        return Mat_VarCreate(name.c_str(), MAT_C_CHAR, MAT_T_UTF8, 2, dims,
+                             (void *) s.data(), 0);
+    }
+
+    nb::object arr_obj;
+    if (nb::ndarray_check(obj)) {
+        arr_obj = obj;
+    } else if (nb::isinstance<nb::bool_>(obj) || nb::isinstance<nb::int_>(obj) ||
+               nb::isinstance<nb::float_>(obj)) {
+        arr_obj = np.attr("array")(obj);
+    } else {
+        throw std::runtime_error("Unsupported type for variable: " + name);
+    }
+
+    nb::ndarray<> arr = arr_obj.cast<nb::ndarray<>>();
+
+    size_t rank = arr.ndim();
+    std::vector<size_t> dims;
+    if (rank == 0) {
+        dims = {1, 1};
+        rank = 2;
+    } else {
+        dims.resize(rank);
+        for (size_t i = 0; i < rank; ++i)
+            dims[i] = arr.shape(i);
+    }
+
+    auto dt = arr.dtype();
+    int class_type = 0, data_type = 0;
+    bool is_logical = false;
+
+    using nb::dlpack::dtype_code;
+    switch ((dtype_code) dt.code) {
+        case dtype_code::Float:
+            if (dt.bits == 64) {
+                class_type = MAT_C_DOUBLE;
+                data_type = MAT_T_DOUBLE;
+            } else if (dt.bits == 32) {
+                class_type = MAT_C_SINGLE;
+                data_type = MAT_T_SINGLE;
+            } else {
+                throw std::runtime_error("Unsupported float width for variable: " + name);
+            }
+            break;
+        case dtype_code::Int:
+            if (dt.bits == 8) {
+                class_type = MAT_C_INT8;
+                data_type = MAT_T_INT8;
+            } else if (dt.bits == 16) {
+                class_type = MAT_C_INT16;
+                data_type = MAT_T_INT16;
+            } else if (dt.bits == 32) {
+                class_type = MAT_C_INT32;
+                data_type = MAT_T_INT32;
+            } else if (dt.bits == 64) {
+                class_type = MAT_C_INT64;
+                data_type = MAT_T_INT64;
+            } else {
+                throw std::runtime_error("Unsupported int width for variable: " + name);
+            }
+            break;
+        case dtype_code::UInt:
+            if (dt.bits == 8) {
+                class_type = MAT_C_UINT8;
+                data_type = MAT_T_UINT8;
+            } else if (dt.bits == 16) {
+                class_type = MAT_C_UINT16;
+                data_type = MAT_T_UINT16;
+            } else if (dt.bits == 32) {
+                class_type = MAT_C_UINT32;
+                data_type = MAT_T_UINT32;
+            } else if (dt.bits == 64) {
+                class_type = MAT_C_UINT64;
+                data_type = MAT_T_UINT64;
+            } else {
+                throw std::runtime_error("Unsupported uint width for variable: " + name);
+            }
+            break;
+        case dtype_code::Bool:
+            class_type = MAT_C_UINT8;
+            data_type = MAT_T_UINT8;
+            is_logical = true;
+            break;
+        default:
+            throw std::runtime_error("Unsupported dtype for variable: " + name);
+    }
+
+    matvar_t *var = Mat_VarCreate(name.c_str(), (matio_classes) class_type,
+                                  (matio_types) data_type, (int) rank, dims.data(),
+                                  arr.data(), 0);
+    if (!var)
+        throw std::runtime_error("Mat_VarCreate failed for variable: " + name);
+    if (is_logical)
+        var->isLogical = 1;
+    return var;
+}
+
+void savemat(const std::string &filename, const nb::dict &variables) {
+    mat_t *matfp = Mat_CreateVer(filename.c_str(), nullptr, MAT_FT_MAT5);
+    if (!matfp)
+        throw std::runtime_error("Failed to create MAT file: " + filename);
+
+    for (auto [k, v] : variables) {
+        std::string name = nb::cast<std::string>(k);
+        nb::object obj = nb::borrow<nb::object>(v);
+        matvar_t *var = nullptr;
+        try {
+            var = pyobject_to_matvar(name, obj);
+            if (Mat_VarWrite(matfp, var, MAT_COMPRESSION_NONE) != 0)
+                throw std::runtime_error("write error");
+        } catch (...) {
+            if (var)
+                Mat_VarFree(var);
+            Mat_Close(matfp);
+            throw;
+        }
+        Mat_VarFree(var);
+    }
+
+    Mat_Close(matfp);
+}
+
 NB_MODULE(libpymatio, m) {
     
     m.def("loadmat", &loadmat, "Load a MAT file",
@@ -436,10 +564,9 @@ NB_MODULE(libpymatio, m) {
           nb::arg("simplify_cells") = false,
           nb::arg("debug_log_enabled") = false
         );
-
-    // m.def("savemat", &savemat, "Save variables to a MAT file",
-    //       nb::arg("filename"),
-    //       nb::arg("dict"));
+    m.def("savemat", &savemat, "Save variables to a MAT file",
+          nb::arg("filename"),
+          nb::arg("variables"));
 // pybind11::enum_<matio::MatAcc>(m, "MatAcc", "MAT file access types.")
 //     .value("RDONLY", matio::MatAcc::RDONLY, "Read only file access.")
 //     .value("RDWR", matio::MatAcc::RDWR, "Read/Write file access.")

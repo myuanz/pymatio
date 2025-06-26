@@ -25,13 +25,14 @@ print(pm.get_library_version())
 print(pm.loadmat('file.mat'))
 ```
 
-## 从源代码构建
+## 对开发者
 
 ### 常规构建流程
 
 ```bash
 git clone https://github.com/myuanz/pymatio && cd pymatio
-pip install .
+uv sync --dev --no-install-project
+uv pip install --no-build-isolation -ve .
 ```
 
 zlib、hdf5 等基础依赖将自动下载并构建，无需系统预先安装.

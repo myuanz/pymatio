@@ -76,7 +76,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # <setup nanobind>-----------------------------
 set(DEV_MODULE Development)
-find_package(Python 3.8
+find_package(Python 
   REQUIRED COMPONENTS Interpreter Development.Module
   OPTIONAL_COMPONENTS Development.SABIModule)
 

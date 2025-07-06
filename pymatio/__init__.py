@@ -5,13 +5,15 @@ from pathlib import Path
 import sysconfig
 
 EXT_SUFFIX = sysconfig.get_config_var("EXT_SUFFIX")
+plat_tag = sysconfig.get_platform().replace("-", "_").replace(".", "_")
 
-candidate_dlls = [
+raw_candidate_dlls = [
     Path(__file__).parent / f'libpymatio{EXT_SUFFIX}',
     Path(__file__).parent.parent / 'build' / f'libpymatio{EXT_SUFFIX}',
+    Path(__file__).parent.parent / 'build' / f'cp312-abi3-{plat_tag}' / 'Release' / f'libpymatio{EXT_SUFFIX}',
     # *list(Path(__file__).parent.parent.glob(f'libpymatio{EXT_SUFFIX}'))
 ]
-candidate_dlls = filter(lambda x: x.exists(), candidate_dlls)
+candidate_dlls = filter(lambda x: x.exists(), raw_candidate_dlls)
 candidate_dlls = sorted(candidate_dlls, key=lambda x: x.stat().st_size, reverse=True)
 
 for target_dll in candidate_dlls:
@@ -26,7 +28,7 @@ for target_dll in candidate_dlls:
     except Exception as e:
         raise
 else:
-    raise RuntimeError(f"Failed to load pymatio. Candidates: {candidate_dlls}")
+    raise RuntimeError(f"Failed to load pymatio. Candidates: {raw_candidate_dlls}")
 
 # from libpymatio import get_library_version
-from libpymatio import *
+from libpymatio import * # noqa

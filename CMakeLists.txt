@@ -201,6 +201,17 @@ message(STATUS "ZLIB_SOURCE_DIR: ${ZLIB_SOURCE_DIR};${ZLIB_BINARY_DIR}")
 set(HDF5_VERSION_STRING "1.14.5")
 
 message("H5_ZLIB_INCLUDE_DIRS: ${H5_ZLIB_INCLUDE_DIRS}")
+# Ensure zlib is built before HDF5 configuration  
+# Set up zlib configuration for HDF5 to detect
+set(ZLIB_FOUND ON CACHE BOOL "Found zlib" FORCE)
+set(ZLIB_INCLUDE_DIRS "${ZLIB_SOURCE_DIR};${ZLIB_BINARY_DIR}" CACHE STRING "Zlib include dirs" FORCE)
+set(ZLIB_LIBRARIES "zlibstatic" CACHE STRING "Zlib libraries" FORCE)
+set(ZLIB_LIBRARY "zlibstatic" CACHE STRING "Zlib library" FORCE)
+set(ZLIB_INCLUDE_DIR "${ZLIB_SOURCE_DIR}" CACHE STRING "Zlib include dir" FORCE)
+
+# Force CMake to use our zlib configuration
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG OFF)
+
 CPMAddPackage(
   NAME HDF5
   GITHUB_REPOSITORY HDFGroup/hdf5
@@ -212,11 +223,20 @@ CPMAddPackage(
     "HDF5_ENABLE_SZIP_ENCODING OFF"
     "HDF5_ENABLE_SZIP_SUPPORT OFF"
 
-    # "ZLIB_LIBRARIES libz"
-    "H5_ZLIB_INCLUDE_DIRS ${ZLIB_SOURCE_DIR}"
+    # Enable built-in filters without plugin support
+    "HDF5_ENABLE_FILTER_DEFLATE ON"
+    "HDF5_USE_FILTER_DEFLATE ON"
+    "HDF5_ENABLE_PLUGIN_SUPPORT OFF"
+    
+    # Force zlib detection  
+    "CMAKE_FIND_PACKAGE_PREFER_CONFIG OFF"
+    "ZLIB_FOUND ON"
+    "ZLIB_INCLUDE_DIRS ${ZLIB_SOURCE_DIR};${ZLIB_BINARY_DIR}"
+    "ZLIB_LIBRARIES zlibstatic"
+    "ZLIB_LIBRARY zlibstatic"
+    "ZLIB_INCLUDE_DIR ${ZLIB_SOURCE_DIR}"
     "H5_ZLIB_HEADER zlib.h"
     "HDF5_USE_ZLIB_STATIC ON"
-    "H5_ZLIB_STATIC_LIBRARY zlib-static"
 
     "HDF5_EXTERNALLY_CONFIGURED ON"
 
@@ -226,6 +246,9 @@ CPMAddPackage(
 )
 if(HDF5_ADDED)
   message("HDF5 added ${HDF5_LIBRARIES}")
+  # Make sure HDF5 depends on zlib
+  add_dependencies(hdf5-static zlibstatic)
+  
   if(TARGET hdf5-static)
     set_target_properties(hdf5-static PROPERTIES POSITION_INDEPENDENT_CODE ON)
     target_link_libraries(hdf5-static PRIVATE zlib-static)

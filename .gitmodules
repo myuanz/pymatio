@@ -1,0 +1,3 @@
+[submodule "tests/data/matio-matio_test_datasets"]
+	path = tests/data/matio-matio_test_datasets
+	url = https://git.code.sf.net/p/matio/matio_test_datasets

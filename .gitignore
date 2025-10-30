@@ -5,7 +5,6 @@
 /wheelhouse
 .idea
 .vscode
-.xmake
 
 *.mat
 *.so

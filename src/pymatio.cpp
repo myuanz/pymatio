@@ -13,6 +13,7 @@
 #include <locale>
 #include <stdexcept>
 #include <cstring>
+#include <algorithm>
 #include <fmt/format.h>
 #include <iostream>
 
@@ -51,26 +52,27 @@ void debug_log(const std::string& fmt, Args&&... args) {
 }
 
 
-std::string string_to_utf8(int string_type, const std::string& input) {
+nb::object string_to_utf8(int string_type, const std::string& input) {
     // match MAT_T_UTF8 MAT_T_UTF16 MAT_T_UTF32
     try {
-        std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_conv;
-        std::wstring_convert<std::codecvt_utf16<wchar_t, 0x10ffff, std::little_endian>> utf16_conv;
-        std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> utf32_conv;
-
+        // 使用Python的bytes类型来处理原始数据
+        nb::object bytes_obj = nb::bytes(input.c_str(), input.length());
+        
+        // 使用Python的str函数并指定errors='replace'参数，处理无法解码的字符
+        nb::object str_func = nb::module_::import_("builtins").attr("str");
+        
         switch (string_type) {
             case MAT_T_UTF8:
-            case MAT_T_UINT8:
-                return input;
+            case MAT_T_UINT8: {
+                return str_func(bytes_obj, nb::arg("encoding") = "utf-8", nb::arg("errors") = "replace");
+            }
             case MAT_T_UTF16:
             case MAT_T_UINT16: {
-                std::wstring utf16_str = utf16_conv.from_bytes(input);
-                return utf8_conv.to_bytes(utf16_str);
+                return str_func(bytes_obj, nb::arg("encoding") = "utf-16-le", nb::arg("errors") = "replace");
             }
-            case MAT_T_UTF32: 
+            case MAT_T_UTF32:
             case MAT_T_UINT32: {
-                std::u32string utf32_str(reinterpret_cast<const char32_t*>(input.data()), input.length() / sizeof(char32_t));
-                return utf32_conv.to_bytes(utf32_str);
+                return str_func(bytes_obj, nb::arg("encoding") = "utf-32-le", nb::arg("errors") = "replace");
             }
             default:
                 throw std::runtime_error("Unsupported string type: " + std::to_string(string_type));
@@ -82,8 +84,8 @@ std::string string_to_utf8(int string_type, const std::string& input) {
         }
         printf("\n");
         printf("string_to_utf8 error: %s\n", e.what());
-        // 如果转换失败，返回原始字符串
-        return input;
+        // 如果转换失败，返回一个特殊的标记字符串
+        return nb::str("[无法解码的字符串]");
     }
 }
 // Helper function to convert matvar_t to Python object
@@ -340,18 +342,28 @@ nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
         case MAT_C_STRUCT: {
             nb::dict struct_dict;
             if(!matvar->internal) {
-                throw std::runtime_error("Malformed MAT_C_STRUCT variable: " + std::string(matvar->name));
+                // 使用Python的str函数并指定errors='replace'参数，处理无法解码的字符
+                nb::object str_func = nb::module_::import_("builtins").attr("str");
+                nb::object name_obj = str_func(nb::bytes(matvar->name, matvar->name ? strlen(matvar->name) : 0), nb::arg("encoding") = "utf-8", nb::arg("errors") = "replace");
+                throw std::runtime_error("Malformed MAT_C_STRUCT variable: " + std::string(nb::str(name_obj).c_str()));
             }
             debug_log_with_indent("matvar->internal->num_fields: {:d}", indent, matvar->internal->num_fields);
             for(unsigned i = 0; i < matvar->internal->num_fields; ++i) {
                 const char* field_name = matvar->internal->fieldnames[i];
                 matvar_t* field_var = static_cast<matvar_t**>(matvar->data)[i];
-                debug_log_with_indent("field_name: {:s}", indent, field_name);
+                
+                // 使用Python的str函数并指定errors='replace'参数，处理无法解码的字符
+                nb::object str_func = nb::module_::import_("builtins").attr("str");
+                nb::object field_name_obj = str_func(nb::bytes(field_name, field_name ? strlen(field_name) : 0), nb::arg("encoding") = "utf-8", nb::arg("errors") = "replace");
+                
+                debug_log_with_indent("field_name: {:s}", indent, nb::str(field_name_obj).c_str());
 
+                // Convert to nb::str for dictionary key
+                nb::str field_name_str = nb::str(field_name_obj);
                 if(field_var) {
-                    struct_dict[field_name] = matvar_to_pyobject(field_var, indent + 2, simplify_cells);
+                    struct_dict[field_name_str] = matvar_to_pyobject(field_var, indent + 2, simplify_cells);
                 } else {
-                    struct_dict[field_name] = nb::none();
+                    struct_dict[field_name_str] = nb::none();
                 }
             }
             return struct_dict;
@@ -364,16 +376,60 @@ nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
                 return nb::str("");
             }
 
-            std::string raw_str(static_cast<char*>(matvar->data), matvar->nbytes);
-            std::string utf8_str = string_to_utf8(matvar->data_type, raw_str);
-            debug_log_with_indent("MAT_C_CHAT matvar->data: `{:s}`", indent, utf8_str);
-
-            // Trim trailing spaces
-            size_t endpos = utf8_str.find_last_not_of(" ");
-            if(endpos != std::string::npos) {
-                utf8_str = utf8_str.substr(0, endpos + 1);
+            // 使用Python的bytes类型来处理原始数据
+            nb::object bytes_obj = nb::bytes(static_cast<char*>(matvar->data), matvar->nbytes);
+            
+            // 使用Python的str函数并指定errors='replace'参数，处理无法解码的字符
+            nb::object str_func = nb::module_::import_("builtins").attr("str");
+            return str_func(bytes_obj, nb::arg("encoding") = "utf-8", nb::arg("errors") = "replace");
+        }
+        case MAT_C_SPARSE: { 
+            // Handle sparse matrices
+            if (!matvar || matvar->class_type != MAT_C_SPARSE) {
+                throw std::runtime_error("Invalid matvar or not a sparse matrix");
             }
-            return nb::str(utf8_str.c_str());
+            
+            // For MAT_C_SPARSE, matvar is a cell array with 3 elements: pr, ir, jc
+            if (matvar->rank != 2 || matvar->dims[0] != 1 || matvar->dims[1] != 3) {
+                throw std::runtime_error("Invalid sparse matrix format: expected 1x3 cell array");
+            }
+            
+            // Get the sparse matrix components using Mat_VarGetCell
+            matvar_t* pr = Mat_VarGetCell(matvar, 0);
+            matvar_t* ir = Mat_VarGetCell(matvar, 1);
+            matvar_t* jc = Mat_VarGetCell(matvar, 2);
+            
+            // Check if all components were retrieved successfully
+            if (!pr || !ir || !jc) {
+                // Free any components that were retrieved
+                if (pr) Mat_VarFree(pr);
+                if (ir) Mat_VarFree(ir);
+                if (jc) Mat_VarFree(jc);
+                throw std::runtime_error("Failed to retrieve sparse matrix components");
+            }
+            
+            try {
+                // Convert components to numpy arrays - always use simplify_cells=false for sparse matrix components
+                nb::object pr_array = matvar_to_pyobject(pr, indent + 2, false);
+                nb::object ir_array = matvar_to_pyobject(ir, indent + 2, false);
+                nb::object jc_array = matvar_to_pyobject(jc, indent + 2, false);
+                
+                // Create scipy sparse matrix without specifying shape
+                nb::module_ sparse = nb::module_::import_("scipy.sparse");
+                return sparse.attr("csc_matrix")(nb::make_tuple(pr_array, ir_array, jc_array));
+            } catch (const std::bad_cast& e) {
+                // Free the components in case of an exception
+                Mat_VarFree(pr);
+                Mat_VarFree(ir);
+                Mat_VarFree(jc);
+                throw std::runtime_error("Failed to cast sparse matrix components: " + std::string(e.what()));
+            } catch (...) {
+                // Free the components in case of an exception
+                Mat_VarFree(pr);
+                Mat_VarFree(ir);
+                Mat_VarFree(jc);
+                throw;
+            }
         }
         case MAT_C_OPAQUE: {
             throw std::runtime_error("Unsupported MAT class: " + std::to_string(matvar->class_type));
@@ -399,20 +455,31 @@ nb::dict loadmat(const std::string& filename, bool simplify_cells = false, bool 
 
     while((matvar = Mat_VarReadNext(matfp)) != nullptr) {
         try {
-            debug_log("in matvar->name: {:s}", matvar->name);
-            mat_dict[matvar->name] = matvar_to_pyobject(matvar, 0, simplify_cells);
-            debug_log("out matvar->name: {:s}", matvar->name);
+            // Handle matvar->name with proper encoding
+            nb::object str_func = nb::module_::import_("builtins").attr("str");
+            nb::object name_obj = str_func(nb::bytes(matvar->name, matvar->name ? strlen(matvar->name) : 0), nb::arg("encoding") = "utf-8", nb::arg("errors") = "replace");
+            nb::str name_str = nb::str(name_obj);
+            
+            debug_log("in matvar->name: {:s}", name_str.c_str());
+            mat_dict[name_str] = matvar_to_pyobject(matvar, 0, simplify_cells);
+            debug_log("out matvar->name: {:s}", name_str.c_str());
         } catch(const std::exception& e) {
-            debug_log("Error processing variable '{:s}': {:s}", matvar->name, e.what());
+            // Handle matvar->name with proper encoding for error messages
+            std::string var_name = matvar->name ? matvar->name : "<unknown>";
+            try {
+                nb::object str_func = nb::module_::import_("builtins").attr("str");
+                nb::object name_obj = str_func(nb::bytes(matvar->name, matvar->name ? strlen(matvar->name) : 0), nb::arg("encoding") = "utf-8", nb::arg("errors") = "replace");
+                var_name = std::string(nb::str(name_obj).c_str());
+            } catch(...) {
+                // If encoding fails, use the original string with warning
+                var_name = "<encoding error: " + var_name + ">";
+            }
+            
+            debug_log("Error processing variable '{:s}': {:s}", var_name.c_str(), e.what());
             Mat_VarFree(matvar);
             Mat_Close(matfp);
             
-            // backward::StackTrace st;
-            // st.load_here(32);
-            // backward::Printer p;
-            // p.print(st);
-
-            throw std::runtime_error(std::string("Error processing variable"));
+            throw std::runtime_error("Error processing variable '" + var_name + "': " + e.what());
         }
         Mat_VarFree(matvar);
     }

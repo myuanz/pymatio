@@ -71,9 +71,11 @@ def compare_mats(mat1, mat2, path=""):
         print(f"值不一致: {path[:-1]} `{mat1}` <-> `{mat2}`")
         
         
-p = '/home/myuan/C052-inj/C052-217-P0.ntp'
-# p = '/mnt/90-connectome/test_data.mat'
-# p = '/mnt/90-connectome/test_data_73.mat'
+# 使用项目中的测试数据文件
+import os
+test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tests', 'data', 'matio-matio_test_datasets')
+# 使用一个MAT7.2文件
+p = os.path.join(test_data_dir, 'matio_test_cases_uncompressed_le.mat')
 t0 = time.time()
 mat_from_pm = pm.loadmat(p, simplify_cells=True)
 t1 = time.time()

@@ -31,7 +31,7 @@ for format = formats
     if strcmp(format{1}, 'mat5')
         save(fullfile(data_dir, 'test_scalars_mat5.mat'), ...
              'double_scalar', 'float_scalar', 'int32_scalar', 'uint32_scalar', ...
-             'int64_scalar', 'uint64_scalar', 'logical_scalar', 'char_scalar', '-v5');
+             'int64_scalar', 'uint64_scalar', 'logical_scalar', 'char_scalar', '-v7');
     else
         save(fullfile(data_dir, 'test_scalars_mat73.mat'), ...
              'double_scalar', 'float_scalar', 'int32_scalar', 'uint32_scalar', ...
@@ -54,7 +54,7 @@ for format = formats
     if strcmp(format{1}, 'mat5')
         save(fullfile(data_dir, 'test_vectors_mat5.mat'), ...
              'double_vector', 'float_vector', 'int32_vector', 'uint32_vector', ...
-             'int64_vector', 'uint64_vector', 'logical_vector', 'char_vector', '-v5');
+             'int64_vector', 'uint64_vector', 'logical_vector', 'char_vector', '-v7');
     else
         save(fullfile(data_dir, 'test_vectors_mat73.mat'), ...
              'double_vector', 'float_vector', 'int32_vector', 'uint32_vector', ...
@@ -77,7 +77,7 @@ for format = formats
     if strcmp(format{1}, 'mat5')
         save(fullfile(data_dir, 'test_matrices_mat5.mat'), ...
              'double_matrix', 'float_matrix', 'int32_matrix', 'uint32_matrix', ...
-             'int64_matrix', 'uint64_matrix', 'logical_matrix', 'char_matrix', '-v5');
+             'int64_matrix', 'uint64_matrix', 'logical_matrix', 'char_matrix', '-v7');
     else
         save(fullfile(data_dir, 'test_matrices_mat73.mat'), ...
              'double_matrix', 'float_matrix', 'int32_matrix', 'uint32_matrix', ...
@@ -95,7 +95,7 @@ double_4d = rand(2, 2, 2, 2);
 for format = formats
     if strcmp(format{1}, 'mat5')
         save(fullfile(data_dir, 'test_multidim_mat5.mat'), ...
-             'double_3d', 'float_3d', 'int32_3d', 'double_4d', '-v5');
+             'double_3d', 'float_3d', 'int32_3d', 'double_4d', '-v7');
     else
         save(fullfile(data_dir, 'test_multidim_mat73.mat'), ...
              'double_3d', 'float_3d', 'int32_3d', 'double_4d', '-v7.3');
@@ -112,7 +112,7 @@ cell_of_cells = {{1, 2}, {3, 4}, {5, 6}};
 for format = formats
     if strcmp(format{1}, 'mat5')
         save(fullfile(data_dir, 'test_cells_mat5.mat'), ...
-             'simple_cell', 'nested_cell', 'empty_cell', 'cell_of_cells', '-v5');
+             'simple_cell', 'nested_cell', 'empty_cell', 'cell_of_cells', '-v7');
     else
         save(fullfile(data_dir, 'test_cells_mat73.mat'), ...
              'simple_cell', 'nested_cell', 'empty_cell', 'cell_of_cells', '-v7.3');
@@ -140,7 +140,7 @@ struct_array(3).value = 30;
 for format = formats
     if strcmp(format{1}, 'mat5')
         save(fullfile(data_dir, 'test_structs_mat5.mat'), ...
-             'simple_struct', 'nested_struct', 'struct_array', '-v5');
+             'simple_struct', 'nested_struct', 'struct_array', '-v7');
     else
         save(fullfile(data_dir, 'test_structs_mat73.mat'), ...
              'simple_struct', 'nested_struct', 'struct_array', '-v7.3');
@@ -150,13 +150,13 @@ end
 % Generate string arrays (MATLAB R2016b+)
 fprintf('Generating string arrays...\n');
 string_array = string({'Hello', 'World', 'MATLAB', 'Python'});
-nested_string_array = string({{'a', 'b'}, {'c', 'd'}});
+nested_string_array = {string({'a', 'b'}), string({'c', 'd'})};
 empty_string_array = string.empty;
 
 for format = formats
     if strcmp(format{1}, 'mat5')
         save(fullfile(data_dir, 'test_strings_mat5.mat'), ...
-             'string_array', 'nested_string_array', 'empty_string_array', '-v5');
+             'string_array', 'nested_string_array', 'empty_string_array', '-v7');
     else
         save(fullfile(data_dir, 'test_strings_mat73.mat'), ...
              'string_array', 'nested_string_array', 'empty_string_array', '-v7.3');
@@ -173,7 +173,7 @@ complex_float = single(2 + 3i);
 for format = formats
     if strcmp(format{1}, 'mat5')
         save(fullfile(data_dir, 'test_complex_mat5.mat'), ...
-             'complex_scalar', 'complex_vector', 'complex_matrix', 'complex_float', '-v5');
+             'complex_scalar', 'complex_vector', 'complex_matrix', 'complex_float', '-v7');
     else
         save(fullfile(data_dir, 'test_complex_mat73.mat'), ...
              'complex_scalar', 'complex_vector', 'complex_matrix', 'complex_float', '-v7.3');
@@ -182,17 +182,13 @@ end
 
 % Generate enumerations
 fprintf('Generating enumerations...\n');
-enumdef = @() enumeration('Red', 1, 'Green', 2, 'Blue', 3);
-if ~exist('Color', 'class')
-    eval(['classdef Color ', func2str(enumdef)]);
-end
 color_enum = Color.Red;
 color_array = [Color.Green, Color.Blue, Color.Red];
 
 for format = formats
     if strcmp(format{1}, 'mat5')
         save(fullfile(data_dir, 'test_enums_mat5.mat'), ...
-             'color_enum', 'color_array', '-v5');
+             'color_enum', 'color_array', '-v7');
     else
         save(fullfile(data_dir, 'test_enums_mat73.mat'), ...
              'color_enum', 'color_array', '-v7.3');
@@ -203,12 +199,13 @@ end
 fprintf('Generating time series data...\n');
 time = datetime('now') - hours(24):minutes(30):datetime('now');
 data = rand(size(time));
-time_series = timeseries(data, time);
+time_num = datenum(time);
+time_series = timeseries(data, time_num);
 
 for format = formats
     if strcmp(format{1}, 'mat5')
         save(fullfile(data_dir, 'test_timeseries_mat5.mat'), ...
-             'time', 'data', 'time_series', '-v5');
+             'time', 'data', 'time_series', '-v7');
     else
         save(fullfile(data_dir, 'test_timeseries_mat73.mat'), ...
              'time', 'data', 'time_series', '-v7.3');
@@ -228,7 +225,7 @@ for format = formats
     if strcmp(format{1}, 'mat5')
         save(fullfile(data_dir, 'test_empty_mat5.mat'), ...
              'empty_double', 'empty_int32', 'empty_logical', 'empty_char', ...
-             'empty_cell', 'empty_struct', '-v5');
+             'empty_cell', 'empty_struct', '-v7');
     else
         save(fullfile(data_dir, 'test_empty_mat73.mat'), ...
              'empty_double', 'empty_int32', 'empty_logical', 'empty_char', ...
@@ -239,7 +236,7 @@ end
 % Generate mixed data types
 fprintf('Generating mixed data types...\n');
 mixed_data.name = 'Mixed Test';
-mixed_data.scalars = [1, 2.5, true, 'x'];
+mixed_data.scalars = {1, 2.5, true, 'x'};
 mixed_data.vector = 1:10;
 mixed_data.matrix = rand(3, 3);
 mixed_data.cell = {1, 'hello', [1 2 3]};
@@ -247,7 +244,7 @@ mixed_data.struct = struct('a', 1, 'b', 'test');
 
 for format = formats
     if strcmp(format{1}, 'mat5')
-        save(fullfile(data_dir, 'test_mixed_mat5.mat'), 'mixed_data', '-v5');
+        save(fullfile(data_dir, 'test_mixed_mat5.mat'), 'mixed_data', '-v7');
     else
         save(fullfile(data_dir, 'test_mixed_mat73.mat'), 'mixed_data', '-v7.3');
     end
@@ -255,4 +252,10 @@ end
 
 fprintf('All .mat files generated successfully!\n');
 fprintf('Saved to: %s\n', data_dir);
+% List the generated files
+fprintf('Generated files:\n');
+files = dir(fullfile(data_dir, '*.mat'));
+for i = 1:length(files)
+    fprintf('  %s\n', files(i).name);
+end
 diary off;

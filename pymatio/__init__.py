@@ -34,6 +34,7 @@ for target_dll in candidate_dlls:
         continue
     try:
         spec = importlib.util.spec_from_file_location("libpymatio", target_dll)
+        assert spec is not None and spec.loader is not None, f"Could not create spec for {target_dll}"
         libpymatio = importlib.util.module_from_spec(spec)
         sys.modules["libpymatio"] = libpymatio
         spec.loader.exec_module(libpymatio)

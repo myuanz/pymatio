@@ -76,6 +76,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # <setup nanobind>-----------------------------
 set(DEV_MODULE Development)
+# When configuring directly (not via scikit-build-core), CMake on Windows
+# tends to prefer registry/system Python over an activated venv. If a venv is
+# active, bias FindPython to use it.
+if(DEFINED ENV{VIRTUAL_ENV})
+  set(Python_FIND_VIRTUALENV FIRST)
+  set(Python_FIND_REGISTRY NEVER)
+  if(NOT DEFINED Python_ROOT_DIR)
+    set(Python_ROOT_DIR "$ENV{VIRTUAL_ENV}")
+  endif()
+endif()
 find_package(Python 
   REQUIRED COMPONENTS Interpreter Development.Module
   OPTIONAL_COMPONENTS Development.SABIModule)
@@ -91,6 +101,20 @@ if(Python_FOUND)
   message(STATUS "Python_LIBRARY: ${Python_LIBRARY}")
   message(STATUS "Python_LIBRARIES: ${Python_LIBRARIES}")
   message(STATUS "Python_INCLUDE_DIRS: ${Python_INCLUDE_DIRS}")
+
+  if(DEFINED ENV{VIRTUAL_ENV})
+    file(TO_CMAKE_PATH "$ENV{VIRTUAL_ENV}" _venv_root)
+    file(TO_CMAKE_PATH "${Python_EXECUTABLE}" _python_executable_norm)
+    string(FIND "${_python_executable_norm}" "${_venv_root}" _venv_idx)
+    if(_venv_idx EQUAL -1)
+      if(WIN32)
+        set(_venv_python_hint "${_venv_root}/Scripts/python.exe")
+      else()
+        set(_venv_python_hint "${_venv_root}/bin/python")
+      endif()
+      message(WARNING "An active virtual environment was detected (${_venv_root}), but CMake resolved Python_EXECUTABLE to '${Python_EXECUTABLE}'. If you reused an existing build directory, delete CMakeCache.txt or reconfigure with -DPython_EXECUTABLE='${_venv_python_hint}'.")
+    endif()
+  endif()
   
 
   # In some cases, the extension name (.so) may be lost, so specify it manually

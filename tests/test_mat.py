@@ -82,7 +82,7 @@ def test_version() -> None:
 
 def load_mat_baseline(path: Path) -> dict:
     try:
-        result = scio.loadmat(str(path))
+        result = scio.loadmat(str(path), simplify_cells=True)
     except NotImplementedError:
         result = mat73.loadmat(str(path))
     assert isinstance(result, dict)
@@ -90,7 +90,7 @@ def load_mat_baseline(path: Path) -> dict:
 
 def _check_mat(path: Path, debug_log_enabled=False) -> None:
     print(f"loading: {path}", flush=True)
-    result = pm.loadmat(str(path), debug_log_enabled=debug_log_enabled)
+    result = pm.loadmat(str(path), debug_log_enabled=debug_log_enabled, simplify_cells=True)
     # print(result)
     assert isinstance(result, dict)
     if '__matio_reason__' in result:

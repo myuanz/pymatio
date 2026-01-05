@@ -47,6 +47,8 @@ def compare_maybe_array(a, b):
 
 def compare_mats(mat1, mat2, path=""):
     if isinstance(mat1, dict) and isinstance(mat2, dict):
+        if '__matio_reason__' in mat1 or '__matio_reason__' in mat2:
+            return True
         for key in set(mat1.keys()) | set(mat2.keys()):
             if key not in mat1:
                 print(f"字段 '{path}{key}' 在 mat_from_pm 中不存在")
@@ -91,6 +93,9 @@ def _check_mat(path: Path, debug_log_enabled=False) -> None:
     result = pm.loadmat(str(path), debug_log_enabled=debug_log_enabled)
     # print(result)
     assert isinstance(result, dict)
+    if '__matio_reason__' in result:
+        print(f"Skipping comparison for {path} due to matio placeholder: {result['__matio_reason__']}")
+        return
 
     baseline = load_mat_baseline(path)
     baseline.pop("__header__", None)

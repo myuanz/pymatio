@@ -47,6 +47,15 @@ jobs:
           restore-keys: |
             cibw-${{ runner.os }}-
 
+      - name: Remove mingw from PATH (force MSVC)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $items = $env:PATH -split ';' | Where-Object { $_ -and ($_ -notmatch '(?i)\\mingw64\\bin') -and ($_ -notmatch '(?i)^C:\\mingw64\\bin$') }
+          $new = ($items -join ';')
+          "PATH=$new" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.0
         env:

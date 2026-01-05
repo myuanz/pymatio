@@ -1,6 +1,6 @@
 [project]
 name = "pymatio"
-version = "0.1.3"
+version = "0.2.0"
 description = "Fast, compact MAT file reader supporting MAT5/MAT7.3 formats within a 2MiB footprint. Eliminates dependency on bulky scipy and h5py. Based on Python binding for matio."
 authors = [
     { name = "zhengmy", email = "zhengmy@ion.ac.cn"}
@@ -59,13 +59,14 @@ archs = ["auto64"]
 
 build-verbosity = 1
 build-frontend = "build"
-test-requires = "pytest"
+test-requires = ["pytest", "scipy", "mat73"]
 test-command = "pytest {project}/tests"
 
 linux.container-engine = "podman"
 
-[tool.cibuildwheel.macos.environment]
-MACOSX_DEPLOYMENT_TARGET = "10.14"
+[tool.cibuildwheel.environment]
+CMAKE_GENERATOR = "Ninja"
+CMAKE_BUILD_PARALLEL_LEVEL = "8"
 
 [dependency-groups]
 dev = [

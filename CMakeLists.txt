@@ -239,7 +239,7 @@ set(CMAKE_FIND_PACKAGE_PREFER_CONFIG OFF)
 CPMAddPackage(
   NAME HDF5
   GITHUB_REPOSITORY HDFGroup/hdf5
-  GIT_TAG hdf5_1.14.5
+  GIT_TAG 2.0.0
   OPTIONS
     "HDF5_ENABLE_Z_LIB_SUPPORT ON"
     "HDF5_BUILD_TOOLS OFF"
@@ -295,7 +295,7 @@ endif()
 CPMAddPackage(
   NAME matio
   GITHUB_REPOSITORY tbeu/matio
-  GIT_TAG v1.5.27
+  GIT_TAG v1.5.29
   OPTIONS
     "MATIO_WITH_HDF5 ON"
     "MATIO_WITH_ZLIB ON"
@@ -313,7 +313,7 @@ if (matio_ADDED)
   target_link_libraries(matio PUBLIC ${HDF5_LIBRARY_NAME} zlib-static)
 endif()
 
-CPMAddPackage("gh:fmtlib/fmt#11.0.2")
+CPMAddPackage("gh:fmtlib/fmt#12.1.0")
 if(fmt_ADDED)
   set_target_properties(fmt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()

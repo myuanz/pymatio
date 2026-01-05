@@ -60,6 +60,21 @@ nb::dict make_placeholder(const matvar_t* matvar, const char* reason) {
     return placeholder;
 };
 
+nb::object make_empty_ndarray(std::vector<ssize_t> shape) {
+    auto np = nb::module_::import_("numpy");
+    nb::object empty_array = np.attr("empty")(
+        shape,
+        nb::arg("dtype") = np.attr("object_"),
+        nb::arg("order") = "F"
+    );
+    return empty_array;
+}
+
+nb::object make_empty_ndarray() {
+    std::vector<ssize_t> shape = {1,1};
+    return make_empty_ndarray(shape);
+}
+
 std::string latin1_to_utf8(std::string_view input) {
     std::string out;
     out.reserve(input.size() * 2);
@@ -396,13 +411,7 @@ nb::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cell
         return matvar_to_pyobject(Mat_VarGetCell(matvar, 0), indent + 2, simplify_cells);
     }
 
-    nb::module_ np = nb::module_::import_("numpy");
-
-    nb::object cell_array = np.attr("empty")(
-        shape,
-        nb::arg("dtype") = np.attr("object_"),
-        nb::arg("order") = "F"
-    );
+    nb::object cell_array = make_empty_ndarray(shape);
 
     matvar_t** cells = nullptr;
     if (matvar->data != nullptr) {
@@ -454,6 +463,12 @@ nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
                 throw std::runtime_error("Malformed MAT_C_STRUCT variable: " + std::string(name));
             }
             if (!matvar->data || !matvar->internal->fieldnames) {
+                if (simplify_cells) {
+                    return struct_dict;
+                } else {
+                    nb::object ndarr_with_none = make_empty_ndarray();
+                    return ndarr_with_none;
+                }
                 return make_placeholder(matvar, "Struct data is missing; returning placeholder");
             }
             debug_log_with_indent("matvar->internal->num_fields: {:d}", indent, matvar->internal->num_fields);

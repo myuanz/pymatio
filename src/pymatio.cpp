@@ -75,6 +75,10 @@ nb::object make_empty_ndarray() {
     return make_empty_ndarray(shape);
 }
 
+auto is_unsupported_leaf(int class_type) -> bool {
+    return class_type == MAT_C_OBJECT || class_type == MAT_C_SPARSE || class_type == MAT_C_OPAQUE;
+};
+
 std::string latin1_to_utf8(std::string_view input) {
     std::string out;
     out.reserve(input.size() * 2);
@@ -127,7 +131,7 @@ std::string string_to_utf8(int string_type, const std::string& input) {
     }
 }
 // Helper function to convert matvar_t to Python object
-nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells);
+nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells, bool is_mat73);
 
 std::string combine_var_type(matvar_t* matvar) {
     const char *data_type_desc[25] = {"Unknown",
@@ -375,7 +379,7 @@ nb::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
     }
 }
 
-nb::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cells) {
+nb::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cells, bool is_mat73) {
     if (!matvar || matvar->class_type != MAT_C_CELL) {
         throw std::runtime_error("Invalid matvar or not a cell array");
     }
@@ -408,7 +412,7 @@ nb::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cell
     debug_log_with_indent(shape_str + ")", indent);
 
     if (total_elements == 1 && simplify_cells) {
-        return matvar_to_pyobject(Mat_VarGetCell(matvar, 0), indent + 2, simplify_cells);
+        return matvar_to_pyobject(Mat_VarGetCell(matvar, 0), indent + 2, simplify_cells, is_mat73);
     }
 
     nb::object cell_array = make_empty_ndarray(shape);
@@ -424,7 +428,7 @@ nb::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cell
         debug_log_with_indent("set item {:d}", indent, i);
 
         if (cells != nullptr && cells[i]) {
-            obj = matvar_to_pyobject(cells[i], indent + 2, simplify_cells);
+            obj = matvar_to_pyobject(cells[i], indent + 2, simplify_cells, is_mat73);
         }
         cell_array_reshaped.attr("__setitem__")(i, obj);
     }
@@ -435,7 +439,7 @@ nb::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cell
 }
 
 // Function to convert matvar_t to Python object
-nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells = false) {
+nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells, bool is_mat73) {
     if(matvar == nullptr) {
         return nb::none();
     }
@@ -476,6 +480,40 @@ nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
                 total_elements *= matvar->dims[i];
             }
 
+
+            if (!simplify_cells && matvar->internal->num_fields > 0 && total_elements > 0) {
+                for (unsigned field_index = 0; field_index < matvar->internal->num_fields; ++field_index) {
+                    for (size_t struct_index = 0; struct_index < total_elements; ++struct_index) {
+                        matvar_t* field_var = Mat_VarGetStructFieldByIndex(matvar, field_index, struct_index);
+                        if (field_var != nullptr && is_unsupported_leaf(field_var->class_type)) {
+                            return make_placeholder(matvar, "Struct contains unsupported leaf types; returning placeholder");
+                        }
+                    }
+                }
+            }
+
+            bool is_vector_struct_array = (matvar->rank == 2) && (matvar->dims[0] == 1 || matvar->dims[1] == 1);
+            if (is_mat73 && !simplify_cells && total_elements > 1 && is_vector_struct_array) {
+                nb::dict struct_dict;
+                debug_log_with_indent("matvar->internal->num_fields: {:d}", indent, matvar->internal->num_fields);
+                for (unsigned field_index = 0; field_index < matvar->internal->num_fields; ++field_index) {
+                    const char* field_name = matvar->internal->fieldnames[field_index];
+                    debug_log_with_indent("field_name: {:s}", indent, field_name);
+
+                    nb::list field_values;
+                    for (size_t struct_index = 0; struct_index < total_elements; ++struct_index) {
+                        matvar_t* field_var = Mat_VarGetStructFieldByIndex(matvar, field_index, struct_index);
+                        if (field_var) {
+                            field_values.append(matvar_to_pyobject(field_var, indent + 2, simplify_cells, is_mat73));
+                        } else {
+                            field_values.append(nb::none());
+                        }
+                    }
+                    struct_dict[field_name] = field_values;
+                }
+                return struct_dict;
+            }
+
             auto make_struct_dict = [&](size_t struct_index) -> nb::dict {
                 nb::dict struct_dict;
                 debug_log_with_indent("matvar->internal->num_fields: {:d}", indent, matvar->internal->num_fields);
@@ -485,7 +523,7 @@ nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
                     debug_log_with_indent("field_name: {:s}", indent, field_name);
 
                     if (field_var) {
-                        struct_dict[field_name] = matvar_to_pyobject(field_var, indent + 2, simplify_cells);
+                        struct_dict[field_name] = matvar_to_pyobject(field_var, indent + 2, simplify_cells, is_mat73);
                     } else {
                         struct_dict[field_name] = nb::none();
                     }
@@ -534,7 +572,7 @@ nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
             return struct_array;
         }
         case MAT_C_CELL: {
-            return matvar_to_numpy_cell(matvar, indent, simplify_cells);
+            return matvar_to_numpy_cell(matvar, indent, simplify_cells, is_mat73);
         }
         case MAT_C_CHAR: {
             if(!matvar->data) {
@@ -594,6 +632,8 @@ nb::dict loadmat(const std::string& filename, bool simplify_cells = false, bool 
         throw std::runtime_error("Failed to open MAT file: " + filename);
     }
 
+    bool is_mat73 = matfp->version == MAT_FT_MAT73;
+
     matvar_t* matvar;
     nb::dict mat_dict;
     size_t unnamed_index = 0;
@@ -613,7 +653,7 @@ nb::dict loadmat(const std::string& filename, bool simplify_cells = false, bool 
         }
         try {
             debug_log("in matvar->name: {:s}", name);
-            mat_dict[name] = matvar_to_pyobject(matvar, 0, simplify_cells);
+            mat_dict[name] = matvar_to_pyobject(matvar, 0, simplify_cells, is_mat73);
             debug_log("out matvar->name: {:s}", name);
         } catch(const std::exception& e) {
             debug_log("Error processing variable '{:s}': {:s}", name, e.what());

@@ -50,6 +50,19 @@ void debug_log(const std::string& fmt, Args&&... args) {
     return debug_log_with_indent(fmt, 0, std::forward<Args>(args)...);
 }
 
+std::string latin1_to_utf8(std::string_view input) {
+    std::string out;
+    out.reserve(input.size() * 2);
+    for (unsigned char c : input) {
+        if (c < 0x80) {
+            out.push_back(static_cast<char>(c));
+            continue;
+        }
+        out.push_back(static_cast<char>(0xC0 | (c >> 6)));
+        out.push_back(static_cast<char>(0x80 | (c & 0x3F)));
+    }
+    return out;
+}
 
 std::string string_to_utf8(int string_type, const std::string& input) {
     // match MAT_T_UTF8 MAT_T_UTF16 MAT_T_UTF32
@@ -60,8 +73,10 @@ std::string string_to_utf8(int string_type, const std::string& input) {
 
         switch (string_type) {
             case MAT_T_UTF8:
-            case MAT_T_UINT8:
                 return input;
+            case MAT_T_UINT8:
+                // MAT4 character arrays are stored as uint8 bytes; scipy uses a Latin-1 mapping.
+                return latin1_to_utf8(input);
             case MAT_T_UTF16:
             case MAT_T_UINT16: {
                 std::wstring utf16_str = utf16_conv.from_bytes(input);
@@ -364,16 +379,36 @@ nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
                 return nb::str("");
             }
 
-            std::string raw_str(static_cast<char*>(matvar->data), matvar->nbytes);
+            auto decode_row = [&](std::string raw_str) -> nb::object {
             std::string utf8_str = string_to_utf8(matvar->data_type, raw_str);
-            debug_log_with_indent("MAT_C_CHAT matvar->data: `{:s}`", indent, utf8_str);
+                debug_log_with_indent("MAT_C_CHAT matvar->data: `{:s}`", indent+2, utf8_str);
+                return nb::str(utf8_str.c_str());
+            };
 
-            // Trim trailing spaces
-            size_t endpos = utf8_str.find_last_not_of(" ");
-            if(endpos != std::string::npos) {
-                utf8_str = utf8_str.substr(0, endpos + 1);
+            if (matvar->rank == 2 && matvar->dims != nullptr && matvar->dims[0] > 1 && matvar->dims[1] > 1) {
+                printf("MAT_C_CHAR multi-row detected\n");
+                size_t rows = matvar->dims[0];
+                size_t cols = matvar->dims[1];
+                size_t elem_size = static_cast<size_t>(matvar->data_size);
+                const char* base = static_cast<const char*>(matvar->data);
+
+                nb::list out;
+                for (size_t row = 0; row < rows; ++row) {
+                    std::string row_bytes;
+                    row_bytes.reserve(cols * elem_size);
+                    for (size_t col = 0; col < cols; ++col) {
+                        size_t offset = (row + col * rows) * elem_size;
+                        row_bytes.append(base + offset, elem_size);
+                    }
+                    out.append(decode_row(row_bytes));
             }
-            return nb::str(utf8_str.c_str());
+                return out;
+            } else {
+                std::string raw_str(static_cast<const char*>(matvar->data), matvar->nbytes);
+                return decode_row(raw_str);
+            }
+
+            
         }
         case MAT_C_OPAQUE: {
             throw std::runtime_error("Unsupported MAT class: " + std::to_string(matvar->class_type));

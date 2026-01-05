@@ -22,6 +22,17 @@ on:
       - 'CMakeLists.txt'
       - '*.yml'
   workflow_call:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: "Which OS to run"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - windows
+          - ubuntu
 
 jobs:
   build_wheels:
@@ -47,6 +58,14 @@ jobs:
           restore-keys: |
             cibw-${{ runner.os }}-
 
+      - name: Cache CPM downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/cpm-cache
+          key: cpm-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', '**/CPM*.cmake') }}
+          restore-keys: |
+            ${{ runner.os }}-cpm-
+
       - uses: TheMrMilchmann/setup-msvc-dev@v4
         if: runner.os == 'Windows'
         with:
@@ -56,6 +75,8 @@ jobs:
         uses: pypa/cibuildwheel@v3.3.0
         env:
           CIBW_CACHE_PATH: ${{ env.CIBW_CACHE_PATH }}
+          CIBW_ENVIRONMENT: CPM_SOURCE_CACHE="~/cpm-cache"
+          CPM_SOURCE_CACHE: "~/cpm-cache"
 
       - uses: actions/upload-artifact@v4
         with:

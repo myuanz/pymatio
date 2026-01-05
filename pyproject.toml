@@ -62,7 +62,7 @@ build-frontend = "build"
 test-requires = ["pytest", "scipy", "mat73"]
 test-command = "pytest {project}/tests"
 
-linux.container-engine = "podman"
+linux.container-engine = "docker"
 
 [tool.cibuildwheel.environment]
 CMAKE_GENERATOR = "Ninja"

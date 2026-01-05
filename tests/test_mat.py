@@ -11,6 +11,15 @@ from types import NoneType
 DATA_DIR = Path(__file__).parent / "data"
 MATIO_DATASET_DIR = DATA_DIR / "matio-matio_test_datasets"
 
+HDF5_MAGIC = b"\x89HDF\r\n\x1a\n"
+
+def is_mat73_file(path: Path) -> bool:
+    with path.open("rb") as f:
+        if f.read(8) == HDF5_MAGIC:
+            return True
+        f.seek(512)
+        return f.read(8) == HDF5_MAGIC
+
 def is_iterable(a):
     if isinstance(a, np.ndarray):
         return a.ndim > 0
@@ -43,6 +52,19 @@ def compare_maybe_array(a, b):
 
     if isinstance(a, np.ndarray) and isinstance(b, np.ndarray):
         # print('cmp', a, b)
+        if a.dtype == np.bool_ and b.dtype == np.uint8:
+            return np.array_equal(a.reshape(-1), b.astype(np.bool_).reshape(-1))
+        if a.dtype == np.uint8 and b.dtype == np.bool_:
+            return np.array_equal(a.astype(np.bool_).reshape(-1), b.reshape(-1))
+
+        if a.dtype == object or b.dtype == object:
+            if a.size != b.size:
+                return False
+            for i, (x, y) in enumerate(zip(a.reshape(-1), b.reshape(-1))):
+                if not compare_mats(x, y, f"[{i}]."):
+                    return False
+            return True
+
         try:
             return np.array_equal(a.reshape(-1), b.reshape(-1))
         except Exception as e:
@@ -62,6 +84,37 @@ def compare_maybe_array(a, b):
         return a == b
 
 def compare_mats(mat1, mat2, path=""):
+    for m in (mat1, mat2):
+        if isinstance(m, dict) and '__matio_reason__' in m:
+            return True
+
+    types = {type(mat1), type(mat2)}
+
+    print(f"{mat1=} | {mat2=}")
+    mat1 = sequeze(mat1)
+    mat2 = sequeze(mat2)
+    types = {type(mat1), type(mat2)}
+    print(f"After squeeze: {mat1=} | {mat2=}")
+
+    if types == {np.ndarray}:
+        return compare_maybe_array(mat1, mat2)
+
+    if types == {list, np.ndarray}:
+        if isinstance(mat1, np.ndarray):
+            lst, arr = mat2, mat1
+        else:
+            lst, arr = mat1, mat2
+
+        seq1 = arr
+        if len(seq1) != len(lst):
+            print(f"列表长度不一致: {path[:-1]} | {len(seq1)} != {len(lst)} | {arr=} {lst=}")
+            return False
+        for i, (item1, item2) in enumerate(zip(seq1, lst)):
+            print(f"\tComparing list/array item {i} at {path}[{i}] | {item1=} | {item2=}")
+            if not compare_mats(item1, item2, f"{path}[{i}]."):
+                return False
+        return True
+
     if isinstance(mat1, dict) and isinstance(mat2, dict):
         if '__matio_reason__' in mat1 or '__matio_reason__' in mat2:
             return True
@@ -102,36 +155,75 @@ def compare_mats(mat1, mat2, path=""):
 def test_version() -> None:
     assert pm.get_library_version() == (1, 5, 27)
 
-def load_mat_baseline(path: Path) -> dict:
-    try:
-        result = scio.loadmat(str(path), simplify_cells=True)
-    except NotImplementedError:
-        result = mat73.loadmat(str(path))
+def load_mat5_baseline(path: Path, simplify_cells: bool) -> dict:
+    result = scio.loadmat(str(path), simplify_cells=simplify_cells)
     assert isinstance(result, dict)
     return result
 
+def load_mat73_baseline(path: Path) -> dict:
+    result = mat73.loadmat(str(path))
+    assert isinstance(result, dict)
+    return result
+
+def sequeze(obj):
+    if isinstance(obj, np.void) and obj.dtype.fields is not None:
+        return {k: sequeze(obj[k]) for k in obj.dtype.fields}
+
+    if isinstance(obj, np.ndarray) and obj.dtype.fields is not None:
+        flat = obj.reshape(-1)
+        if flat.size == 1:
+            return sequeze(flat[0])
+        return [sequeze(x) for x in flat]
+
+    if hasattr(obj, "_fieldnames") and isinstance(getattr(obj, "_fieldnames"), (list, tuple)):
+        return {k: sequeze(getattr(obj, k)) for k in obj._fieldnames}
+
+    if isinstance(obj, (np.ndarray, list, tuple)):
+        if isinstance(obj, np.ndarray):
+            if obj.ndim == 0:
+                return obj.item()
+            if obj.dtype.kind in ("S", "U"):
+                flat = obj.reshape(-1)
+                chars_per_elem = obj.dtype.itemsize // 4 if obj.dtype.kind == "U" else obj.dtype.itemsize
+                if chars_per_elem == 1:
+                    return "".join([x.decode("utf-8") if isinstance(x, bytes) else str(x) for x in flat])
+                return [x.decode("utf-8") if isinstance(x, bytes) else str(x) for x in flat]
+
+        if len(obj) == 1:
+            return sequeze(obj[0])
+        elif len(obj) == 0:
+            return None
+    return obj
+
 def _check_mat(path: Path, debug_log_enabled=False) -> None:
     print(f"loading: {path}", flush=True)
-    result = pm.loadmat(str(path), debug_log_enabled=debug_log_enabled, simplify_cells=True)
-    # print(result)
-    assert isinstance(result, dict)
-    if '__matio_reason__' in result:
-        print(f"Skipping comparison for {path} due to matio placeholder: {result['__matio_reason__']}")
-        return
 
-    try:
-        baseline = load_mat_baseline(path)
-    except Exception as e:
-        import warnings
-        warnings.warn(f"Failed to load baseline for {path} using scipy.io or mat73: {e}")
-        return
-    
-    baseline.pop("__header__", None)
-    baseline.pop("__version__", None)
-    baseline.pop("__globals__", None)
+    if is_mat73_file(path):
+        result = pm.loadmat(str(path), debug_log_enabled=debug_log_enabled, simplify_cells=False)
+        assert isinstance(result, dict)
+        baseline = load_mat73_baseline(path)
+        baseline.pop("__header__", None)
+        baseline.pop("__version__", None)
+        baseline.pop("__globals__", None)
+        print(f'{result=}\n{baseline=}')
 
-    if not compare_mats(result, baseline):
-        raise AssertionError(f"Comparison failed for {path}")
+
+        if not compare_mats(result, baseline):
+            raise AssertionError(f"Comparison failed for {path}")
+        return
+    else:
+        for simplify_cells in (True, False):
+            result = pm.loadmat(str(path), debug_log_enabled=debug_log_enabled, simplify_cells=simplify_cells)
+            assert isinstance(result, dict)
+
+            baseline = load_mat5_baseline(path, simplify_cells=simplify_cells)
+            baseline.pop("__header__", None)
+            baseline.pop("__version__", None)
+            baseline.pop("__globals__", None)
+            print(f'{simplify_cells=}\n{result=}\n{baseline=}')
+
+            if not compare_mats(result, baseline):
+                raise AssertionError(f"Comparison failed for {path} (simplify_cells={simplify_cells})")
 
 
 @pytest.mark.parametrize("mat_path", sorted(DATA_DIR.glob("*.mat")))

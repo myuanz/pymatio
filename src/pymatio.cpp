@@ -324,20 +324,23 @@ nb::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cell
         nb::arg("order") = "F"
     );
 
-    matvar_t** cells = Mat_VarGetCellsLinear(matvar, 0, 1, total_elements);
+    matvar_t** cells = nullptr;
+    if (matvar->data != nullptr) {
+cells = Mat_VarGetCellsLinear(matvar, 0, 1, total_elements);
+}
     auto cell_array_reshaped = cell_array.attr("ravel")("F");
 
     for (size_t i = 0; i < total_elements; ++i) {
-        nb::object obj;
+        nb::object obj = nb::none();
         debug_log_with_indent("set item {:d}", indent, i);
 
-        if (cells[i]) {
+        if (cells != nullptr && cells[i]) {
             obj = matvar_to_pyobject(cells[i], indent + 2, simplify_cells);
-        } else {
-            // obj = nb::none();
-            // the default value of cell is empty array, so set it to empty is not necessary
-        }
+                }
         cell_array_reshaped.attr("__setitem__")(i, obj);
+    }
+if (cells != nullptr) {
+        free(cells);
     }
     return cell_array;
 }

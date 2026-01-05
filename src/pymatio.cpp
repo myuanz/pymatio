@@ -457,33 +457,81 @@ nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
         case MAT_C_EMPTY:
             return nb::none();
         case MAT_C_STRUCT: {
-            nb::dict struct_dict;
             if(!matvar->internal) {
                 const char* name = matvar->name ? matvar->name : "<unnamed>";
                 throw std::runtime_error("Malformed MAT_C_STRUCT variable: " + std::string(name));
             }
             if (!matvar->data || !matvar->internal->fieldnames) {
+                nb::dict struct_dict;
                 if (simplify_cells) {
                     return struct_dict;
                 } else {
                     nb::object ndarr_with_none = make_empty_ndarray();
                     return ndarr_with_none;
                 }
-                return make_placeholder(matvar, "Struct data is missing; returning placeholder");
             }
-            debug_log_with_indent("matvar->internal->num_fields: {:d}", indent, matvar->internal->num_fields);
-            for(unsigned i = 0; i < matvar->internal->num_fields; ++i) {
-                const char* field_name = matvar->internal->fieldnames[i];
-                matvar_t* field_var = Mat_VarGetStructFieldByIndex(matvar, i, 0);
-                debug_log_with_indent("field_name: {:s}", indent, field_name);
 
-                if(field_var) {
-                    struct_dict[field_name] = matvar_to_pyobject(field_var, indent + 2, simplify_cells);
-                } else {
-                    struct_dict[field_name] = nb::none();
-                }
+            size_t total_elements = 1;
+            for (int i = 0; i < matvar->rank; ++i) {
+                total_elements *= matvar->dims[i];
             }
-            return struct_dict;
+
+            auto make_struct_dict = [&](size_t struct_index) -> nb::dict {
+                nb::dict struct_dict;
+                debug_log_with_indent("matvar->internal->num_fields: {:d}", indent, matvar->internal->num_fields);
+                for (unsigned i = 0; i < matvar->internal->num_fields; ++i) {
+                    const char* field_name = matvar->internal->fieldnames[i];
+                    matvar_t* field_var = Mat_VarGetStructFieldByIndex(matvar, i, struct_index);
+                    debug_log_with_indent("field_name: {:s}", indent, field_name);
+
+                    if (field_var) {
+                        struct_dict[field_name] = matvar_to_pyobject(field_var, indent + 2, simplify_cells);
+                    } else {
+                        struct_dict[field_name] = nb::none();
+                    }
+                }
+                return struct_dict;
+            };
+
+            if (total_elements == 0) {
+                if (simplify_cells) {
+                    return nb::list();
+                }
+                std::vector<ssize_t> shape;
+                shape.reserve(static_cast<size_t>(matvar->rank));
+                for (int i = 0; i < matvar->rank; ++i) {
+                    shape.push_back(static_cast<ssize_t>(matvar->dims[i]));
+                }
+                return make_empty_ndarray(shape);
+            }
+
+            if (total_elements == 1) {
+                return make_struct_dict(0);
+            }
+
+            bool can_simplify = simplify_cells &&
+                                (matvar->rank == 2) &&
+                                (matvar->dims[0] == 1 || matvar->dims[1] == 1);
+            if (can_simplify) {
+                nb::list out;
+                for (size_t i = 0; i < total_elements; ++i) {
+                    out.append(make_struct_dict(i));
+                }
+                return out;
+            }
+
+            std::vector<ssize_t> shape;
+            shape.reserve(static_cast<size_t>(matvar->rank));
+            for (int i = 0; i < matvar->rank; ++i) {
+                shape.push_back(static_cast<ssize_t>(matvar->dims[i]));
+            }
+
+            nb::object struct_array = make_empty_ndarray(shape);
+            nb::object struct_array_reshaped = struct_array.attr("ravel")("F");
+            for (size_t i = 0; i < total_elements; ++i) {
+                struct_array_reshaped.attr("__setitem__")(i, make_struct_dict(i));
+            }
+            return struct_array;
         }
         case MAT_C_CELL: {
             return matvar_to_numpy_cell(matvar, indent, simplify_cells);

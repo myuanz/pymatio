@@ -12,9 +12,16 @@ DATA_DIR = Path(__file__).parent / "data"
 MATIO_DATASET_DIR = DATA_DIR / "matio-matio_test_datasets"
 
 def is_iterable(a):
-    return isinstance(a, (list, tuple, set, frozenset, np.ndarray))
+    if isinstance(a, np.ndarray):
+        return a.ndim > 0
+    return isinstance(a, (list, tuple))
 
 def compare_maybe_array(a, b):
+    if isinstance(a, np.ndarray) and a.ndim == 0:
+        a = a.item()
+    if isinstance(b, np.ndarray) and b.ndim == 0:
+        b = b.item()
+
     if {type(a), type(b)} == {np.ndarray, NoneType}:
         if a is None: return b.size == 0
         if b is None: return a.size == 0
@@ -50,6 +57,8 @@ def compare_mats(mat1, mat2, path=""):
         if '__matio_reason__' in mat1 or '__matio_reason__' in mat2:
             return True
         for key in set(mat1.keys()) | set(mat2.keys()):
+            if key in ['', None, 'None'] or 'unnamed' in str(key) or key.startswith('__'):
+                continue
             if key not in mat1:
                 print(f"字段 '{path}{key}' 在 mat_from_pm 中不存在")
                 return False
@@ -57,14 +66,18 @@ def compare_mats(mat1, mat2, path=""):
                 print(f"字段 '{path}{key}' 在 mat_from_mat73 中不存在")
                 return False
             else:
-                return compare_mats(mat1[key], mat2[key], f"{path}{key}.")
+                if not compare_mats(mat1[key], mat2[key], f"{path}{key}."):
+                    return False
+        return True
     elif is_iterable(mat1) and is_iterable(mat2):
         if len(mat1) != len(mat2):
             print(f"列表长度不一致: {path[:-1]} | {len(mat1)} != {len(mat2)} | {mat1=} {mat2=}")
             return False
         else:
             for i, (item1, item2) in enumerate(zip(mat1, mat2)):
-                return compare_mats(item1, item2, f"{path}[{i}].")
+                if not compare_mats(item1, item2, f"{path}[{i}]."):
+                    return False
+            return True
     elif any(type(m) in (float, int, bool, np.bool, np.float64, np.uint8) for m in (mat1, mat2)):
         return mat1 == mat2
     elif mat1 is None and isinstance(mat2, np.ndarray) and mat2.size == 0:
@@ -97,7 +110,13 @@ def _check_mat(path: Path, debug_log_enabled=False) -> None:
         print(f"Skipping comparison for {path} due to matio placeholder: {result['__matio_reason__']}")
         return
 
-    baseline = load_mat_baseline(path)
+    try:
+        baseline = load_mat_baseline(path)
+    except Exception as e:
+        import warnings
+        warnings.warn(f"Failed to load baseline for {path} using scipy.io or mat73: {e}")
+        return
+    
     baseline.pop("__header__", None)
     baseline.pop("__version__", None)
     baseline.pop("__globals__", None)

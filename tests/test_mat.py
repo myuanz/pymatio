@@ -26,7 +26,16 @@ def compare_maybe_array(a, b):
         if a is None: return b.size == 0
         if b is None: return a.size == 0
         return False
-    
+
+    if {type(a), type(b)} == {np.ndarray, str}:
+        if isinstance(a, np.ndarray):
+            s, arr = b, a
+        else:
+            s, arr = a, b
+        assert arr.dtype.char == 'S' or arr.dtype.char == 'U', f"Cannot compare array of dtype {arr.dtype} with string"
+        arr_str = ''.join([x.decode('utf-8') if isinstance(x, bytes) else str(x) for x in arr.reshape(-1)])
+        return arr_str == s
+
     if is_iterable(a) and not isinstance(b, np.ndarray) and len(a) == 1:
         return a[0] == b
     if is_iterable(b) and not isinstance(a, np.ndarray) and len(b) == 1:

@@ -32,7 +32,12 @@ print(pm.loadmat('file.mat'))
 ```bash
 git clone https://github.com/myuanz/pymatio && cd pymatio
 uv sync --dev --no-install-project
-uv pip install --no-build-isolation -ve .
+# or use cmake 
+cmake -S . -B build
+cmake --build build
+
+# for test data
+git submodule update --init --recursive
 ```
 
 zlib、hdf5 等基础依赖将自动下载并构建，无需系统预先安装.
@@ -53,7 +58,9 @@ Windows 通常没有自带的构建工具链, 你可以参考 [此页](https://l
 - [x] 完成 loadmat
 - [ ] 完成 savemat
 - [ ] 自由线程 whl
-- [ ] 导入 scio 的测试和 mat73 的测试
+- [ ] 导入 scio 的测试
+- [ ] 导入 mat73 的测试
+- [x] 导入 matio 的测试
 - [x] 添加 types
 - [ ] 添加 benchmark
   - [ ] With scio

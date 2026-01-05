@@ -178,51 +178,39 @@ nb::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
                         (matvar->dims[0] == 1 || matvar->dims[1] == 1);
 
     nb::dlpack::dtype np_dtype;
-    size_t element_size;
-
     switch(matvar->data_type) {
         case MAT_T_DOUBLE:
             np_dtype = nb::dtype<double>();
-            element_size = sizeof(double);
             break;
         case MAT_T_SINGLE:
             np_dtype = nb::dtype<float>();
-            element_size = sizeof(float);
             break;
         case MAT_T_INT8:
             np_dtype = nb::dtype<int8_t>();
-            element_size = sizeof(int8_t);
             break;
         case MAT_T_UINT8:
             np_dtype = nb::dtype<uint8_t>();
-            element_size = sizeof(uint8_t);
             if (matvar->isLogical) {
                 np_dtype = nb::dtype<bool>();
             }
             break;
         case MAT_T_INT16:
             np_dtype = nb::dtype<int16_t>();
-            element_size = sizeof(int16_t);
             break;
         case MAT_T_UINT16:
             np_dtype = nb::dtype<uint16_t>();
-            element_size = sizeof(uint16_t);
             break;
         case MAT_T_INT32:
             np_dtype = nb::dtype<int32_t>();
-            element_size = sizeof(int32_t);
             break;
         case MAT_T_UINT32:
             np_dtype = nb::dtype<uint32_t>();
-            element_size = sizeof(uint32_t);
             break;
         case MAT_T_INT64:
             np_dtype = nb::dtype<int64_t>();
-            element_size = sizeof(int64_t);
             break;
         case MAT_T_UINT64:
             np_dtype = nb::dtype<uint64_t>();
-            element_size = sizeof(uint64_t);
             break;
         default:
             throw std::runtime_error("Unsupported MAT data type: " + std::to_string(matvar->data_type));
@@ -272,9 +260,9 @@ nb::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
 
     auto arr = nb::ndarray<nb::numpy, nb::f_contig>(
         matvar->data,
-        rank, 
-        reinterpret_cast<size_t*>(shape.data()), 
-        {}, {}, 
+        rank,
+        reinterpret_cast<size_t*>(shape.data()),
+        {}, {},
         np_dtype
     );
     return arr.cast();
@@ -326,8 +314,8 @@ nb::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cell
 
     matvar_t** cells = nullptr;
     if (matvar->data != nullptr) {
-cells = Mat_VarGetCellsLinear(matvar, 0, 1, total_elements);
-}
+        cells = Mat_VarGetCellsLinear(matvar, 0, 1, total_elements);
+    }
     auto cell_array_reshaped = cell_array.attr("ravel")("F");
 
     for (size_t i = 0; i < total_elements; ++i) {
@@ -336,10 +324,10 @@ cells = Mat_VarGetCellsLinear(matvar, 0, 1, total_elements);
 
         if (cells != nullptr && cells[i]) {
             obj = matvar_to_pyobject(cells[i], indent + 2, simplify_cells);
-                }
+        }
         cell_array_reshaped.attr("__setitem__")(i, obj);
     }
-if (cells != nullptr) {
+    if (cells != nullptr) {
         free(cells);
     }
     return cell_array;
@@ -370,12 +358,16 @@ nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
         case MAT_C_STRUCT: {
             nb::dict struct_dict;
             if(!matvar->internal) {
-                throw std::runtime_error("Malformed MAT_C_STRUCT variable: " + std::string(matvar->name));
+                const char* name = matvar->name ? matvar->name : "<unnamed>";
+                throw std::runtime_error("Malformed MAT_C_STRUCT variable: " + std::string(name));
+            }
+            if (!matvar->data || !matvar->internal->fieldnames) {
+                return make_placeholder(matvar, "Struct data is missing; returning placeholder");
             }
             debug_log_with_indent("matvar->internal->num_fields: {:d}", indent, matvar->internal->num_fields);
             for(unsigned i = 0; i < matvar->internal->num_fields; ++i) {
                 const char* field_name = matvar->internal->fieldnames[i];
-                matvar_t* field_var = static_cast<matvar_t**>(matvar->data)[i];
+                matvar_t* field_var = Mat_VarGetStructFieldByIndex(matvar, i, 0);
                 debug_log_with_indent("field_name: {:s}", indent, field_name);
 
                 if(field_var) {
@@ -395,7 +387,7 @@ nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
             }
 
             auto decode_row = [&](std::string raw_str) -> nb::object {
-            std::string utf8_str = string_to_utf8(matvar->data_type, raw_str);
+                std::string utf8_str = string_to_utf8(matvar->data_type, raw_str);
                 debug_log_with_indent("MAT_C_CHAT matvar->data: `{:s}`", indent+2, utf8_str);
                 return nb::str(utf8_str.c_str());
             };
@@ -416,7 +408,7 @@ nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
                         row_bytes.append(base + offset, elem_size);
                     }
                     out.append(decode_row(row_bytes));
-            }
+                }
                 return out;
             } else {
                 std::string raw_str(static_cast<const char*>(matvar->data), matvar->nbytes);

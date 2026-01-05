@@ -28,33 +28,30 @@ jobs:
 
     strategy:
       matrix:
-        # os: [ubuntu-latest, windows-latest, macos-13, macos-14]
         os: [ubuntu-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set cibuildwheel cache dir
+        shell: bash
+        run: echo "CIBW_CACHE_PATH=${GITHUB_WORKSPACE}/.cibw-cache" >> "$GITHUB_ENV"
 
-      - uses: pypa/cibuildwheel@v2.21.3
-        name: Build wheels
-      - run: pipx run cibuildwheel==2.21.1
+      - name: Cache cibuildwheel tools
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CIBW_CACHE_PATH }}
+          key: cibw-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'CMakeLists.txt', 'xmake.lua', '**/*.toml') }}
+          restore-keys: |
+            cibw-${{ runner.os }}-
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.21.3
+        env:
+          CIBW_CACHE_PATH: ${{ env.CIBW_CACHE_PATH }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
           retention-days: 7
-
-  make_sdist:
-    name: Make SDist
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Build SDist
-      run: pipx run build --sdist
-
-    - uses: actions/upload-artifact@v4
-      with:
-        name: cibw-sdist
-        path: dist/*.tar.gz

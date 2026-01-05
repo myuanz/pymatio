@@ -50,6 +50,14 @@ void debug_log(const std::string& fmt, Args&&... args) {
     return debug_log_with_indent(fmt, 0, std::forward<Args>(args)...);
 }
 
+nb::dict make_placeholder(const matvar_t* matvar, const char* reason) {
+    nb::dict placeholder;
+    placeholder["__matio_class_type__"] = nb::int_(static_cast<int>(matvar->class_type));
+    placeholder["__matio_data_type__"] = nb::int_(static_cast<int>(matvar->data_type));
+    placeholder["__matio_reason__"] = nb::str(reason);
+    return placeholder;
+};
+
 std::string latin1_to_utf8(std::string_view input) {
     std::string out;
     out.reserve(input.size() * 2);
@@ -154,6 +162,10 @@ std::string combine_var_type(matvar_t* matvar) {
 nb::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
     if(!matvar->data) {
         return nb::none();
+    }
+
+    if (matvar->isComplex) {
+        return make_placeholder(matvar, "Complex arrays are not yet supported; returning placeholder");
     }
 
     size_t num_elements = 1;
@@ -410,9 +422,12 @@ nb::object matvar_to_pyobject(matvar_t* matvar, int indent, bool simplify_cells 
 
             
         }
-        case MAT_C_OPAQUE: {
-            throw std::runtime_error("Unsupported MAT class: " + std::to_string(matvar->class_type));
-        }
+        case MAT_C_OBJECT:
+            return make_placeholder(matvar, "MATLAB object is not decoded; returning placeholder");
+        case MAT_C_SPARSE:
+            return make_placeholder(matvar, "Sparse matrix is not decoded; returning placeholder");
+        case MAT_C_OPAQUE:
+            return make_placeholder(matvar, "Opaque MATLAB type is not decoded; returning placeholder");
         default:
             throw std::runtime_error("Unsupported MAT class: " + std::to_string(matvar->class_type));
     }

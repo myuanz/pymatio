@@ -31,7 +31,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set cibuildwheel cache dir
         shell: bash
@@ -46,7 +46,7 @@ jobs:
             cibw-${{ runner.os }}-
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21.3
+        uses: pypa/cibuildwheel@v3.3.0
         env:
           CIBW_CACHE_PATH: ${{ env.CIBW_CACHE_PATH }}
 

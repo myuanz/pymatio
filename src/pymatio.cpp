@@ -431,14 +431,27 @@ nb::dict loadmat(const std::string& filename, bool simplify_cells = false, bool 
 
     matvar_t* matvar;
     nb::dict mat_dict;
+    size_t unnamed_index = 0;
+    std::string name_storage;
 
     while((matvar = Mat_VarReadNext(matfp)) != nullptr) {
+        const char* name = matvar->name;
+        if (name == nullptr) {
+            if (PyErr_WarnFormat(
+                PyExc_RuntimeWarning, 2,
+                "Encountered unnamed variable; assigning automatic name."
+            ) < 0) {
+                throw nb::python_error();  // throw when `-W error` is set
+            }
+            name_storage = fmt::format("__unnamed_{}__", unnamed_index++);
+            name = name_storage.c_str();
+        }
         try {
-            debug_log("in matvar->name: {:s}", matvar->name);
-            mat_dict[matvar->name] = matvar_to_pyobject(matvar, 0, simplify_cells);
-            debug_log("out matvar->name: {:s}", matvar->name);
+            debug_log("in matvar->name: {:s}", name);
+            mat_dict[name] = matvar_to_pyobject(matvar, 0, simplify_cells);
+            debug_log("out matvar->name: {:s}", name);
         } catch(const std::exception& e) {
-            debug_log("Error processing variable '{:s}': {:s}", matvar->name, e.what());
+            debug_log("Error processing variable '{:s}': {:s}", name, e.what());
             Mat_VarFree(matvar);
             Mat_Close(matfp);
             

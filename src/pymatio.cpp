@@ -4,6 +4,7 @@
 #include <nanobind/stl/tuple.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
+#include <nanobind/stl/complex.h>
 
 #include <matio.h>
 #include <string>
@@ -13,6 +14,7 @@
 #include <locale>
 #include <stdexcept>
 #include <cstring>
+#include <complex>
 #include <fmt/format.h>
 #include <iostream>
 
@@ -159,13 +161,57 @@ std::string combine_var_type(matvar_t* matvar) {
     return "class type: " + std::string(class_type_desc[matvar->class_type]) + " | data type: " + std::string(data_type_desc[matvar->data_type]);
 }
 
+template <typename T>
+static void delete_array(void* ptr) noexcept {
+    delete[] static_cast<T*>(ptr);
+}
+
+template <typename T>
+static nb::object make_f_contig_array_copy(const void* src, size_t num_elements, const std::vector<size_t>& shape) {
+    auto* buf = new T[num_elements];
+    std::memcpy(buf, src, num_elements * sizeof(T));
+    nb::capsule owner(buf, &delete_array<T>);
+    nb::ndarray<nb::numpy, nb::f_contig, T> arr(buf, shape.size(), shape.data(), owner);
+    return arr.cast();
+}
+
+static nb::object make_f_contig_bool_array_from_uint8(const uint8_t* src, size_t num_elements, const std::vector<size_t>& shape) {
+    auto* buf = new bool[num_elements];
+    for (size_t i = 0; i < num_elements; ++i) {
+        buf[i] = src[i] != 0;
+    }
+    nb::capsule owner(buf, &delete_array<bool>);
+    nb::ndarray<nb::numpy, nb::f_contig, bool> arr(buf, shape.size(), shape.data(), owner);
+    return arr.cast();
+}
+
+template <typename SrcScalar>
+static nb::object make_complex_scalar(const mat_complex_split_t* complex_split) {
+    auto re = static_cast<const SrcScalar*>(complex_split->Re)[0];
+    auto im = static_cast<const SrcScalar*>(complex_split->Im)[0];
+    return nb::cast(std::complex<double>(static_cast<double>(re), static_cast<double>(im)));
+}
+
+template <typename DstScalar, typename SrcScalar>
+static nb::object make_f_contig_complex_array_from_split(
+    const mat_complex_split_t* complex_split,
+    size_t num_elements,
+    const std::vector<size_t>& shape
+) {
+    auto* buf = new std::complex<DstScalar>[num_elements];
+    auto* re = static_cast<const SrcScalar*>(complex_split->Re);
+    auto* im = static_cast<const SrcScalar*>(complex_split->Im);
+    for (size_t i = 0; i < num_elements; ++i) {
+        buf[i] = std::complex<DstScalar>(static_cast<DstScalar>(re[i]), static_cast<DstScalar>(im[i]));
+    }
+    nb::capsule owner(buf, &delete_array<std::complex<DstScalar>>);
+    nb::ndarray<nb::numpy, nb::f_contig, std::complex<DstScalar>> arr(buf, shape.size(), shape.data(), owner);
+    return arr.cast();
+}
+
 nb::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
     if(!matvar->data) {
         return nb::none();
-    }
-
-    if (matvar->isComplex) {
-        return make_placeholder(matvar, "Complex arrays are not yet supported; returning placeholder");
     }
 
     size_t num_elements = 1;
@@ -177,44 +223,80 @@ nb::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
                         (matvar->rank == 2) && 
                         (matvar->dims[0] == 1 || matvar->dims[1] == 1);
 
-    nb::dlpack::dtype np_dtype;
-    switch(matvar->data_type) {
-        case MAT_T_DOUBLE:
-            np_dtype = nb::dtype<double>();
-            break;
-        case MAT_T_SINGLE:
-            np_dtype = nb::dtype<float>();
-            break;
-        case MAT_T_INT8:
-            np_dtype = nb::dtype<int8_t>();
-            break;
-        case MAT_T_UINT8:
-            np_dtype = nb::dtype<uint8_t>();
-            if (matvar->isLogical) {
-                np_dtype = nb::dtype<bool>();
+    auto compute_simplified_shape = [&]() -> std::vector<size_t> {
+        std::vector<size_t> shape;
+        shape.reserve(static_cast<size_t>(matvar->rank));
+
+        for (int i = 0; i < matvar->rank; ++i) {
+            if (matvar->dims[i] == 1 && can_simplify) {
+                continue;
             }
-            break;
-        case MAT_T_INT16:
-            np_dtype = nb::dtype<int16_t>();
-            break;
-        case MAT_T_UINT16:
-            np_dtype = nb::dtype<uint16_t>();
-            break;
-        case MAT_T_INT32:
-            np_dtype = nb::dtype<int32_t>();
-            break;
-        case MAT_T_UINT32:
-            np_dtype = nb::dtype<uint32_t>();
-            break;
-        case MAT_T_INT64:
-            np_dtype = nb::dtype<int64_t>();
-            break;
-        case MAT_T_UINT64:
-            np_dtype = nb::dtype<uint64_t>();
-            break;
-        default:
-            throw std::runtime_error("Unsupported MAT data type: " + std::to_string(matvar->data_type));
+            shape.push_back(static_cast<size_t>(matvar->dims[i]));
+        }
+        return shape;
+    };
+
+    if (matvar->isComplex) {
+        auto* complex_split = static_cast<mat_complex_split_t*>(matvar->data);
+        if (!complex_split || !complex_split->Re || !complex_split->Im) {
+            throw std::runtime_error("Complex data is missing");
+        }
+
+        if (can_simplify && num_elements == 1) {
+            switch (matvar->data_type) {
+                case MAT_T_DOUBLE:
+                    return make_complex_scalar<double>(complex_split);
+                case MAT_T_SINGLE:
+                    return make_complex_scalar<float>(complex_split);
+                case MAT_T_INT8:
+                    return make_complex_scalar<int8_t>(complex_split);
+                case MAT_T_UINT8:
+                    return make_complex_scalar<uint8_t>(complex_split);
+                case MAT_T_INT16:
+                    return make_complex_scalar<int16_t>(complex_split);
+                case MAT_T_UINT16:
+                    return make_complex_scalar<uint16_t>(complex_split);
+                case MAT_T_INT32:
+                    return make_complex_scalar<int32_t>(complex_split);
+                case MAT_T_UINT32:
+                    return make_complex_scalar<uint32_t>(complex_split);
+                case MAT_T_INT64:
+                    return make_complex_scalar<int64_t>(complex_split);
+                case MAT_T_UINT64:
+                    return make_complex_scalar<uint64_t>(complex_split);
+                default:
+                    throw std::runtime_error("Unsupported MAT data type: " + std::to_string(matvar->data_type));
+            }
+        }
+
+        std::vector<size_t> shape = compute_simplified_shape();
+
+        switch (matvar->data_type) {
+            case MAT_T_DOUBLE:
+                return make_f_contig_complex_array_from_split<double, double>(complex_split, num_elements, shape);
+            case MAT_T_SINGLE:
+                return make_f_contig_complex_array_from_split<float, float>(complex_split, num_elements, shape);
+            case MAT_T_INT8:
+                return make_f_contig_complex_array_from_split<double, int8_t>(complex_split, num_elements, shape);
+            case MAT_T_UINT8:
+                return make_f_contig_complex_array_from_split<double, uint8_t>(complex_split, num_elements, shape);
+            case MAT_T_INT16:
+                return make_f_contig_complex_array_from_split<double, int16_t>(complex_split, num_elements, shape);
+            case MAT_T_UINT16:
+                return make_f_contig_complex_array_from_split<double, uint16_t>(complex_split, num_elements, shape);
+            case MAT_T_INT32:
+                return make_f_contig_complex_array_from_split<double, int32_t>(complex_split, num_elements, shape);
+            case MAT_T_UINT32:
+                return make_f_contig_complex_array_from_split<double, uint32_t>(complex_split, num_elements, shape);
+            case MAT_T_INT64:
+                return make_f_contig_complex_array_from_split<double, int64_t>(complex_split, num_elements, shape);
+            case MAT_T_UINT64:
+                return make_f_contig_complex_array_from_split<double, uint64_t>(complex_split, num_elements, shape);
+            default:
+                throw std::runtime_error("Unsupported MAT data type: " + std::to_string(matvar->data_type));
+        }
     }
+
     if (can_simplify && num_elements == 1) {
         switch(matvar->data_type) {
             case MAT_T_DOUBLE:
@@ -247,25 +329,35 @@ nb::object handle_numeric(matvar_t* matvar, bool simplify_cells) {
         }
     }
 
-    std::vector<ssize_t> shape = {};
-    ssize_t rank = matvar->rank;
+    std::vector<size_t> shape = compute_simplified_shape();
 
-    for (int i = 0; i < matvar->rank; ++i) {
-        if (matvar->dims[i] == 1 && can_simplify) {
-            rank --;
-            continue;
-        }
-        shape.push_back(static_cast<ssize_t>(matvar->dims[i]));
+    switch (matvar->data_type) {
+        case MAT_T_DOUBLE:
+            return make_f_contig_array_copy<double>(matvar->data, num_elements, shape);
+        case MAT_T_SINGLE:
+            return make_f_contig_array_copy<float>(matvar->data, num_elements, shape);
+        case MAT_T_INT8:
+            return make_f_contig_array_copy<int8_t>(matvar->data, num_elements, shape);
+        case MAT_T_UINT8:
+            if (matvar->isLogical) {
+                return make_f_contig_bool_array_from_uint8(static_cast<const uint8_t*>(matvar->data), num_elements, shape);
+            }
+            return make_f_contig_array_copy<uint8_t>(matvar->data, num_elements, shape);
+        case MAT_T_INT16:
+            return make_f_contig_array_copy<int16_t>(matvar->data, num_elements, shape);
+        case MAT_T_UINT16:
+            return make_f_contig_array_copy<uint16_t>(matvar->data, num_elements, shape);
+        case MAT_T_INT32:
+            return make_f_contig_array_copy<int32_t>(matvar->data, num_elements, shape);
+        case MAT_T_UINT32:
+            return make_f_contig_array_copy<uint32_t>(matvar->data, num_elements, shape);
+        case MAT_T_INT64:
+            return make_f_contig_array_copy<int64_t>(matvar->data, num_elements, shape);
+        case MAT_T_UINT64:
+            return make_f_contig_array_copy<uint64_t>(matvar->data, num_elements, shape);
+        default:
+            throw std::runtime_error("Unsupported MAT data type: " + std::to_string(matvar->data_type));
     }
-
-    auto arr = nb::ndarray<nb::numpy, nb::f_contig>(
-        matvar->data,
-        rank,
-        reinterpret_cast<size_t*>(shape.data()),
-        {}, {},
-        np_dtype
-    );
-    return arr.cast();
 }
 
 nb::object matvar_to_numpy_cell(matvar_t* matvar, int indent, bool simplify_cells) {

@@ -203,7 +203,7 @@ def _check_mat(path: Path, debug_log_enabled=False) -> None:
     print(f"loading: {path}", flush=True)
 
     if is_mat73_file(path):
-        result = pm.loadmat(str(path), debug_log_enabled=debug_log_enabled, simplify_cells=False)
+        result = pm.loadmat(str(path), debug_log_enabled=debug_log_enabled, simplify_cells=True)
         assert isinstance(result, dict)
         baseline = load_mat73_baseline(path)
         baseline.pop("__header__", None)

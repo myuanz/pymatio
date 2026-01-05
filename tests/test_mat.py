@@ -90,12 +90,13 @@ def compare_mats(mat1, mat2, path=""):
 
     types = {type(mat1), type(mat2)}
 
-    print(f"{mat1=} | {mat2=}")
-    mat1 = sequeze(mat1)
-    mat2 = sequeze(mat2)
+    # print(f"{mat1=} | {mat2=}")
+    mat1 = squeeze(mat1)
+    mat2 = squeeze(mat2)
     types = {type(mat1), type(mat2)}
     print(f"After squeeze: {mat1=} | {mat2=}")
 
+    # print(type(mat1), mat1.items())
     if types == {np.ndarray}:
         return compare_maybe_array(mat1, mat2)
 
@@ -110,7 +111,7 @@ def compare_mats(mat1, mat2, path=""):
             print(f"列表长度不一致: {path[:-1]} | {len(seq1)} != {len(lst)} | {arr=} {lst=}")
             return False
         for i, (item1, item2) in enumerate(zip(seq1, lst)):
-            print(f"\tComparing list/array item {i} at {path}[{i}] | {item1=} | {item2=}")
+            # print(f"\tComparing list/array item {i} at {path}[{i}] | {item1=} | {item2=}")
             if not compare_mats(item1, item2, f"{path}[{i}]."):
                 return False
         return True
@@ -128,6 +129,7 @@ def compare_mats(mat1, mat2, path=""):
                 print(f"字段 '{path}{key}' 在 mat_from_mat73 中不存在")
                 return False
             else:
+                print(f"comp '{path}{key}'")
                 if not compare_mats(mat1[key], mat2[key], f"{path}{key}."):
                     return False
         return True
@@ -165,18 +167,20 @@ def load_mat73_baseline(path: Path) -> dict:
     assert isinstance(result, dict)
     return result
 
-def sequeze(obj):
+def squeeze(obj):
     if isinstance(obj, np.void) and obj.dtype.fields is not None:
-        return {k: sequeze(obj[k]) for k in obj.dtype.fields}
+        return {k: squeeze(obj[k]) for k in obj.dtype.fields}
+    if isinstance(obj, np.ndarray) and obj.dtype.names is not None and obj.ndim == 1:
+        return dict(obj)
 
     if isinstance(obj, np.ndarray) and obj.dtype.fields is not None:
         flat = obj.reshape(-1)
         if flat.size == 1:
-            return sequeze(flat[0])
-        return [sequeze(x) for x in flat]
+            return squeeze(flat[0])
+        return [squeeze(x) for x in flat]
 
     if hasattr(obj, "_fieldnames") and isinstance(getattr(obj, "_fieldnames"), (list, tuple)):
-        return {k: sequeze(getattr(obj, k)) for k in obj._fieldnames}
+        return {k: squeeze(getattr(obj, k)) for k in obj._fieldnames}
 
     if isinstance(obj, (np.ndarray, list, tuple)):
         if isinstance(obj, np.ndarray):
@@ -190,7 +194,7 @@ def sequeze(obj):
                 return [x.decode("utf-8") if isinstance(x, bytes) else str(x) for x in flat]
 
         if len(obj) == 1:
-            return sequeze(obj[0])
+            return squeeze(obj[0])
         elif len(obj) == 0:
             return None
     return obj
@@ -205,7 +209,7 @@ def _check_mat(path: Path, debug_log_enabled=False) -> None:
         baseline.pop("__header__", None)
         baseline.pop("__version__", None)
         baseline.pop("__globals__", None)
-        print(f'{result=}\n{baseline=}')
+        # print(f'{result=}\n{baseline=}')
 
 
         if not compare_mats(result, baseline):
@@ -220,7 +224,7 @@ def _check_mat(path: Path, debug_log_enabled=False) -> None:
             baseline.pop("__header__", None)
             baseline.pop("__version__", None)
             baseline.pop("__globals__", None)
-            print(f'{simplify_cells=}\n{result=}\n{baseline=}')
+            # print(f'{simplify_cells=}\n{result=}\n{baseline=}')
 
             if not compare_mats(result, baseline):
                 raise AssertionError(f"Comparison failed for {path} (simplify_cells={simplify_cells})")

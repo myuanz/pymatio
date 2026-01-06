@@ -42,7 +42,9 @@ for target_dll in candidate_dlls:
     except Exception as e:
         raise
 else:
-    raise RuntimeError(f"Failed to load pymatio. Candidates: {raw_candidate_dlls}")
+    all_maybe_files = build_root.glob(f'**/*{EXT_SUFFIX}')
+    all_maybe_files = [f for f in all_maybe_files if f.is_file()]
+    raise RuntimeError(f"Failed to load pymatio. Candidates: {raw_candidate_dlls} -> {candidate_dlls} | {all_maybe_files=}")
 
 # from libpymatio import get_library_version
 from libpymatio import * # noqa

@@ -75,8 +75,6 @@ jobs:
         uses: pypa/cibuildwheel@v3.3.0
         env:
           CIBW_CACHE_PATH: ${{ env.CIBW_CACHE_PATH }}
-          CIBW_ENVIRONMENT: CPM_SOURCE_CACHE="~/cpm-cache"
-          CPM_SOURCE_CACHE: "~/cpm-cache"
 
       - uses: actions/upload-artifact@v4
         with:

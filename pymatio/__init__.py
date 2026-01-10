@@ -28,7 +28,7 @@ for build_dir in potential_build_dirs:
 if sys.version_info.minor >= 12:
     # Python 3.12+ has stabler ABI
     raw_candidate_dlls = [
-        i.with_name(i.name.replace(f'cp3{sys.version_info.minor}', 'cp312'))
+        i.with_name(i.name.replace(f'3{sys.version_info.minor}', '312'))
         for i in raw_candidate_dlls
     ] + raw_candidate_dlls
 

@@ -4,9 +4,8 @@ import sys
 from pathlib import Path
 import sysconfig
 
-EXT_SUFFIX = sysconfig.get_config_var("EXT_SUFFIX")
-plat_tag = sysconfig.get_platform().replace("-", "_").replace(".", "_")
-python_version = f"cp{sys.version_info.major}{sys.version_info.minor}"
+
+EXT_SUFFIX: str = sysconfig.get_config_var("EXT_SUFFIX")
 
 # Get all possible build directories
 build_root = Path(__file__).parent.parent / 'build'
@@ -26,6 +25,13 @@ for build_dir in potential_build_dirs:
         build_dir / 'Release' / f'libpymatio{EXT_SUFFIX}',
     ])
 
+if sys.version_info.minor >= 12:
+    # Python 3.12+ has stabler ABI
+    raw_candidate_dlls = [
+        i.with_name(i.name.replace(f'cp3{sys.version_info.minor}', 'cp312'))
+        for i in raw_candidate_dlls
+    ] + raw_candidate_dlls
+
 candidate_dlls = filter(lambda x: x.exists(), raw_candidate_dlls)
 candidate_dlls = sorted(candidate_dlls, key=lambda x: x.stat().st_size, reverse=True)
 
@@ -38,6 +44,7 @@ for target_dll in candidate_dlls:
         libpymatio = importlib.util.module_from_spec(spec)
         sys.modules["libpymatio"] = libpymatio
         spec.loader.exec_module(libpymatio)
+        final_dll_path = target_dll
         break
     except Exception as e:
         raise

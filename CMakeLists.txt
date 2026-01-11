@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.18...3.27 FATAL_ERROR)
 # 设置默认构建类型为静态库
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
-set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
 
 # <utils>
 
@@ -74,6 +73,8 @@ endfunction()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+project(libpymatio LANGUAGES CXX)
+
 # <setup nanobind>-----------------------------
 set(DEV_MODULE Development)
 # When configuring directly (not via scikit-build-core), CMake on Windows
@@ -102,6 +103,13 @@ if(Python_FOUND)
   message(STATUS "Python_LIBRARIES: ${Python_LIBRARIES}")
   message(STATUS "Python_INCLUDE_DIRS: ${Python_INCLUDE_DIRS}")
 
+  execute_process(
+    COMMAND "${Python_EXECUTABLE}" -c "import sys; f=getattr(sys, '_is_gil_enabled', None); print('1' if (callable(f) and not f()) else '0')"
+    OUTPUT_VARIABLE PYMATIO_PY_FREE_THREADED
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  message(STATUS "PYMATIO_PY_FREE_THREADED: ${PYMATIO_PY_FREE_THREADED}")
+
   if(DEFINED ENV{VIRTUAL_ENV})
     file(TO_CMAKE_PATH "$ENV{VIRTUAL_ENV}" _venv_root)
     file(TO_CMAKE_PATH "${Python_EXECUTABLE}" _python_executable_norm)
@@ -116,13 +124,6 @@ if(Python_FOUND)
     endif()
   endif()
   
-
-  # In some cases, the extension name (.so) may be lost, so specify it manually
-  execute_process(
-    COMMAND "${Python_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
-    OUTPUT_VARIABLE PYTHON_MODULE_EXTENSION
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
 endif()
 message("CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -136,9 +137,6 @@ execute_process(
 find_package(nanobind CONFIG REQUIRED)
 
 # </setup nanobind>-----------------------------
-
-
-project(libpymatio LANGUAGES CXX)
 
 if(MSVC)
   add_compile_options(/utf-8 /wd4819)
@@ -170,8 +168,11 @@ endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 link_directories(build)
 
-
-nanobind_add_module(libpymatio FREE_THREADED STABLE_ABI NB_STATIC src/pymatio.cpp)
+set(PYMATIO_NANOBIND_FLAGS STABLE_ABI NB_STATIC)
+if(PYMATIO_PY_FREE_THREADED STREQUAL "1")
+  list(APPEND PYMATIO_NANOBIND_FLAGS FREE_THREADED)
+endif()
+nanobind_add_module(libpymatio ${PYMATIO_NANOBIND_FLAGS} src/pymatio.cpp)
 nanobind_add_stub(
   libpymatio-stub
   MODULE libpymatio
@@ -181,16 +182,14 @@ nanobind_add_stub(
   MARKER_FILE ${CMAKE_CURRENT_BINARY_DIR}/py.typed
 )
 
-set_target_properties(libpymatio PROPERTIES
-  SUFFIX "${PYTHON_MODULE_EXTENSION}"
-)
-
 # <include CPM and packages>-----------------------------
 
-if(EXISTS "/host/home/myuan/.cache/CPM/")
+if(DEFINED ENV{CPM_SOURCE_CACHE} AND NOT "$ENV{CPM_SOURCE_CACHE}" STREQUAL "")
+  set(CPM_SOURCE_CACHE "$ENV{CPM_SOURCE_CACHE}")
+elseif(EXISTS "/host/home/myuan/.cache/CPM/")
   set(CPM_SOURCE_CACHE "/host/home/myuan/.cache/CPM/")
 else()
-  set(CPM_SOURCE_CACHE $ENV{HOME}/.cache/CPM/)
+  set(CPM_SOURCE_CACHE "${CMAKE_BINARY_DIR}/cpm-cache")
 endif()
 
 message(STATUS "CPM_SOURCE_CACHE: ${CPM_SOURCE_CACHE}")

@@ -16,6 +16,11 @@ if build_root.exists():
 raw_candidate_dlls = [
     Path(__file__).parent / f'libpymatio{EXT_SUFFIX}',
     Path(__file__).parent.parent / 'build' / f'libpymatio{EXT_SUFFIX}',
+
+    Path(__file__).parent / 'libpymatio.abi3.so',
+    Path(__file__).parent.parent / 'build' / 'libpymatio.abi3.so',
+    Path(__file__).parent / 'libpymatio.pyd',
+    Path(__file__).parent.parent / 'build' / 'libpymatio.pyd',
 ]
 
 # Add all build subdirectories to candidate paths
@@ -49,8 +54,7 @@ for target_dll in candidate_dlls:
     except Exception as e:
         raise
 else:
-    all_maybe_files = build_root.glob(f'**/*{EXT_SUFFIX}')
-    all_maybe_files = [f for f in all_maybe_files if f.is_file()]
+    all_maybe_files = list(build_root.glob(f'**/*.{EXT_SUFFIX.split(".")[-1]}'))
     raise RuntimeError(f"Failed to load pymatio. Candidates: {raw_candidate_dlls} -> {candidate_dlls} | {all_maybe_files=}")
 
 # from libpymatio import get_library_version

@@ -1,17 +1,42 @@
+import importlib.util
+import sys
+import sysconfig
 from pathlib import Path
+from types import ModuleType
+from typing import Optional
 
+import numpy as np
 import pytest
+import scipy.io as scio
 
 import pymatio as pm
-import scipy.io as scio
-import mat73
-import numpy as np
 
 NoneType = type(None)
 DATA_DIR = Path(__file__).parent / "data"
 MATIO_DATASET_DIR = DATA_DIR / "matio-matio_test_datasets"
 
 HDF5_MAGIC = b"\x89HDF\r\n\x1a\n"
+
+MAT73: Optional[ModuleType] = None
+if importlib.util.find_spec("mat73") is not None:
+    import mat73 as MAT73  # type: ignore[assignment]
+
+def is_free_threaded_python() -> bool:
+    is_gil_enabled = getattr(sys, "_is_gil_enabled", None)
+    return bool(callable(is_gil_enabled) and not is_gil_enabled())
+
+def is_musllinux() -> bool:
+    if "musl" in sysconfig.get_platform():
+        return True
+    if any(Path("/lib").glob("ld-musl-*.so.*")):
+        return True
+    if any(Path("/usr/lib").glob("ld-musl-*.so.*")):
+        return True
+    if any(Path("/lib").glob("libc.musl-*.so.*")):
+        return True
+    if any(Path("/usr/lib").glob("libc.musl-*.so.*")):
+        return True
+    return False
 
 def is_mat73_file(path: Path) -> bool:
     with path.open("rb") as f:
@@ -142,7 +167,7 @@ def compare_mats(mat1, mat2, path=""):
                 if not compare_mats(item1, item2, f"{path}[{i}]."):
                     return False
             return True
-    elif any(type(m) in (float, int, bool, np.bool, np.float64, np.uint8) for m in (mat1, mat2)):
+    elif any(type(m) in (float, int, bool, np.bool_, np.float64, np.uint8) for m in (mat1, mat2)):
         return mat1 == mat2
     elif mat1 is None and isinstance(mat2, np.ndarray) and mat2.size == 0:
         return True
@@ -165,7 +190,9 @@ def load_mat5_baseline(path: Path, simplify_cells: bool) -> dict:
     return result
 
 def load_mat73_baseline(path: Path) -> dict:
-    result = mat73.loadmat(str(path))
+    if MAT73 is None:
+        pytest.skip("mat73 is not installed")
+    result = MAT73.loadmat(str(path))
     assert isinstance(result, dict)
     return result
 
@@ -205,8 +232,14 @@ def _check_mat(path: Path, debug_log_enabled=False) -> None:
     print(f"loading: {path}", flush=True)
 
     if is_mat73_file(path):
+        if is_free_threaded_python():
+            pytest.skip("Skipping Mat7.3 (HDF5) tests: dependency chain (mat73/h5py) unstable on free-threaded CPython")
+        if is_musllinux():
+            pytest.skip("Skipping Mat7.3 (HDF5) tests: dependency chain (mat73/h5py) unstable on musllinux")
         result = pm.loadmat(str(path), debug_log_enabled=debug_log_enabled, simplify_cells=True)
         assert isinstance(result, dict)
+        if MAT73 is None:
+            pytest.skip("mat73 is not installed")
         baseline = load_mat73_baseline(path)
         baseline.pop("__header__", None)
         baseline.pop("__version__", None)
@@ -241,10 +274,7 @@ def _check_mat(path: Path, debug_log_enabled=False) -> None:
 
 @pytest.mark.parametrize("mat_path", sorted(DATA_DIR.glob("*.mat")))
 def test_load_local_datasets(mat_path: Path) -> None:
-    try:
-        _check_mat(mat_path)
-    except Exception as e:
-        raise AssertionError(f"Failed to load {mat_path}: {e}") from e
+    _check_mat(mat_path)
 
 
 def test_load_matio_dataset() -> None:

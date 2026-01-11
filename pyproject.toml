@@ -15,7 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: BSD 2-Clause License",
 ]
-requires-python = '>=3.9,<3.14'
+requires-python = '>=3.9,<3.15'
 dependencies = [
     "numpy>=2.0",
 ]
@@ -64,6 +64,14 @@ test-requires = ["pytest", "scipy", "mat73"]
 test-command = "pytest {project}/tests"
 
 linux.container-engine = "docker"
+
+[[tool.cibuildwheel.overrides]]
+select = "cp314t-*"
+test-requires = ["pytest", "scipy"]
+
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux_*"
+test-requires = ["pytest", "scipy"]
 
 [tool.cibuildwheel.environment]
 CMAKE_GENERATOR = "Ninja"

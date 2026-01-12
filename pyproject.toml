@@ -1,6 +1,6 @@
 [project]
 name = "pymatio"
-version = "0.2.1"
+version = "0.2.2"
 description = "Fast, compact MAT file reader supporting MAT5/MAT7.3 formats within a 2MiB footprint. Eliminates dependency on bulky scipy and h5py. Based on Python binding for matio."
 authors = [
     { name = "zhengmy", email = "zhengmy@ion.ac.cn"}
@@ -56,8 +56,7 @@ build-dir = "build/{wheel_tag}"
 wheel.py-api = "cp312"
 
 [tool.cibuildwheel]
-# build = ["cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*", "cp314t-*"]
-build = [ "cp314-*", "cp314t-*"]
+build = ["cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*", "cp314t-*"]
 
 archs = ["auto64"]
 

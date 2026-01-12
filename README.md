@@ -4,6 +4,8 @@
 
 快速、紧凑的 mat 文件读取器，在 2MiB 大小内完成 MAT5/MAT7.3 的读入，摆脱巨大的 scipy 和 h5py 依赖。基于 matio 的 Python 绑定。
 
+Fast, compact MAT file reader supporting MAT5/MAT7.3 formats within a 2MiB footprint. Eliminates dependency on bulky scipy and h5py. Based on Python binding for matio.
+
 ## 背景
 
 Python 中始终没有一个一站式读取 mat 文件的库，mat5 总是依赖 scipy.io, mat7.3 总是依赖 h5py，h5py 直接读取 mat 文件又需要很多手动转换，有一个 mat73 转换，但是核心逻辑是纯 Python 写的，又非常慢。
@@ -12,7 +14,10 @@ Python 中始终没有一个一站式读取 mat 文件的库，mat5 总是依赖
 
 ## 安装
 
-```
+```bash
+uv add pymatio
+
+# or use pip
 pip install pymatio
 ```
 
@@ -57,13 +62,8 @@ Windows 通常没有自带的构建工具链, 你可以参考 [此页](https://l
 - [x] 编译扩展时自动处理虚拟环境
 - [x] 完成 loadmat
 - [ ] 完成 savemat
-- [ ] 自由线程 whl
+- [x] 自由线程 whl
 - [ ] 导入 scio 的测试
-- [ ] 导入 mat73 的测试
+- [x] 导入 mat73 的测试
 - [x] 导入 matio 的测试
 - [x] 添加 types
-- [ ] 添加 benchmark
-  - [ ] With scio
-  - [ ] With mat73
-  - [ ] With Free-Thread
-

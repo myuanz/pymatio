@@ -20,7 +20,6 @@
 
 #include "matio_private.h"
 #include "matio.h"
-#include "strides_utils.h"
 
 namespace nb = nanobind;
 

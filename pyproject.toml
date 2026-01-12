@@ -7,13 +7,16 @@ authors = [
 ]
 
 readme = "README.md"
+license = { text = "BSD-2-Clause" }
 classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "License :: OSI Approved :: BSD 2-Clause License",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading",
+    "License :: OSI Approved :: BSD License",
 ]
 requires-python = '>=3.9,<3.15'
 dependencies = [
@@ -53,7 +56,8 @@ build-dir = "build/{wheel_tag}"
 wheel.py-api = "cp312"
 
 [tool.cibuildwheel]
-build = ["cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*"]
+# build = ["cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*", "cp314t-*"]
+build = [ "cp314-*", "cp314t-*"]
 
 archs = ["auto64"]
 

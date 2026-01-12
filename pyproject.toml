@@ -1,6 +1,6 @@
 [project]
 name = "pymatio"
-version = "0.2.2"
+version = "0.2.3"
 description = "Fast, compact MAT file reader supporting MAT5/MAT7.3 formats within a 2MiB footprint. Eliminates dependency on bulky scipy and h5py. Based on Python binding for matio."
 authors = [
     { name = "zhengmy", email = "zhengmy@ion.ac.cn"}

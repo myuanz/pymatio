@@ -176,10 +176,9 @@ nanobind_add_module(libpymatio ${PYMATIO_NANOBIND_FLAGS} src/pymatio.cpp)
 nanobind_add_stub(
   libpymatio-stub
   MODULE libpymatio
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/__init__.pyi
+  OUTPUT __init__.pyi
   PYTHON_PATH $<TARGET_FILE_DIR:libpymatio>
   DEPENDS libpymatio
-  MARKER_FILE ${CMAKE_CURRENT_BINARY_DIR}/py.typed
 )
 
 # <include CPM and packages>-----------------------------
@@ -343,7 +342,6 @@ install(CODE "
 
 install(
   FILES 
-    ${CMAKE_CURRENT_BINARY_DIR}/py.typed
     ${CMAKE_CURRENT_BINARY_DIR}/__init__.pyi
   DESTINATION pymatio
 )

@@ -38,7 +38,7 @@ print(pm.loadmat('file.mat'))
 git clone https://github.com/myuanz/pymatio && cd pymatio
 uv sync --dev --no-install-project
 # or use cmake 
-cmake -S . -B build
+cmake -S . -B build -G Ninja
 cmake --build build
 
 # for test data
